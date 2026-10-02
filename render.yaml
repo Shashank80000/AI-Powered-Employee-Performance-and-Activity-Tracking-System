@@ -16,8 +16,8 @@ services:
         value: production
       - key: MONGODB_URI # Atlas connection string (asked for on first deploy)
         sync: false
-      - key: CLIENT_ORIGIN # Vercel URL, e.g. https://workplus.vercel.app (comma-separate several)
-        sync: false
+      - key: CLIENT_ORIGIN
+        value: https://ai-powered-employee-performance-and.vercel.app
       - key: AI_SERVICE_URL # https://<workplus-ai>.onrender.com; reports fall back to a basic summary without it
         sync: false
       - key: JWT_SECRET
