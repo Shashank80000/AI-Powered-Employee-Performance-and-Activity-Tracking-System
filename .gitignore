@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+release/
+coverage/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# OS / editors / logs
+.DS_Store
+.vscode/
+.idea/
+*.log
+
+# Screenshot images (deleted after analysis)
+server/storage/

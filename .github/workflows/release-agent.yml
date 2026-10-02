@@ -1,0 +1,45 @@
+# Builds desktop agent installers on each OS: .dmg/.zip (macOS), .exe (Windows), .AppImage/.deb (Linux).
+# Run it from the Actions tab, or push a tag like v0.2.0.
+name: Build desktop agent
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+jobs:
+  build:
+    name: Agent · ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Linux build dependencies for native modules
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libxtst-dev libxt-dev libx11-dev libxkbfile-dev libpng-dev
+      - run: npm ci
+      - name: Build installers
+        run: npm run dist -w @tracker/desktop-agent
+        env:
+          # Unsigned builds unless signing secrets are configured in the repository.
+          CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.CSC_LINK != '' }}
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: workplus-agent-${{ runner.os }}
+          path: |
+            desktop-agent/release/*.dmg
+            desktop-agent/release/*.zip
+            desktop-agent/release/*.exe
+            desktop-agent/release/*.AppImage
+            desktop-agent/release/*.deb
+          if-no-files-found: error

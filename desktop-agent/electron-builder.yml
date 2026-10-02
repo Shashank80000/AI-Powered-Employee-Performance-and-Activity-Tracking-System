@@ -1,0 +1,76 @@
+# Build installers: `npm run dist` builds for the OS you run it on.
+# Native modules (uiohook-napi, get-windows) are compiled per OS/CPU, so build each
+# platform on that platform (or in CI with a macOS, Windows and Linux runner).
+appId: com.hmr.workplus.agent   # keep in sync with APP_ID in src/main/main.js
+productName: WorkPlus Agent
+artifactName: "${productName}-${version}-${os}-${arch}.${ext}"
+directories:
+  output: release
+  # build/license_en.txt is the monitoring notice the person must accept to install
+  # (shown by the Windows installer and the macOS disk image).
+  buildResources: build
+files:
+  - dist/**
+  - src/main/**
+  - src/services/**
+  - src/utils/**
+  - package.json
+# Native .node binaries can't be loaded from inside the asar archive.
+asarUnpack:
+  - "**/node_modules/uiohook-napi/**"
+  - "**/node_modules/get-windows/**"
+npmRebuild: true
+
+# The disk image shows build/license_en.txt and requires "Agree" before it opens.
+dmg:
+  title: WorkPlus Agent
+
+mac:
+  category: public.app-category.productivity
+  target:
+    - target: dmg
+      arch: [arm64, x64]   # Apple Silicon and Intel
+    - target: zip
+      arch: [arm64, x64]
+  hardenedRuntime: true
+  # Screen Recording and Input Monitoring have no Info.plist keys: macOS asks the person
+  # at runtime. Permissions are tied to the code signature, so sign release builds
+  # (CSC_LINK / CSC_KEY_PASSWORD) or the person must re-grant them after each update.
+  extendInfo:
+    NSAppleEventsUsageDescription: WorkPlus Agent reads the name of the active application (never window titles).
+
+win:
+  target:
+    - target: nsis
+      arch: [x64, arm64]
+
+nsis:
+  oneClick: false                    # assisted installer, so the agreement page is shown
+  license: build/license_en.txt      # "I Agree" is required to install
+  runAfterFinish: true               # opens the app so its consent screen follows immediately
+  perMachine: false                  # installs for the current user, no admin rights needed
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true      # the Start Menu shortcut carries the AppUserModelID notifications need
+
+linux:
+  target:
+    - target: AppImage
+      arch: [x64, arm64]
+    - target: deb
+      arch: [x64, arm64]
+  category: Utility
+  maintainer: WorkPlus <workplus@example.com>
+  synopsis: Activity tracking agent that only collects what you agree to
+  executableName: workplus-agent
+
+deb:
+  # libxtst6: uiohook-napi (keyboard counts); libxss1: idle time on X11;
+  # libsecret-1-0: encrypted token storage; libnotify4: notifications.
+  depends:
+    - libxtst6
+    - libxss1
+    - libsecret-1-0
+    - libnotify4
+    - libnss3
+    - xdg-utils

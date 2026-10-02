@@ -1,0 +1,61 @@
+# Runs every test and build on Windows, macOS and Linux for each push and pull request.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  javascript:
+    name: JS · ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      # Tests don't launch Electron, so skip downloading its binary.
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Server unit tests
+        run: npm test -w @tracker/server
+      - name: Dashboard build
+        run: npm run build -w @tracker/client
+      - name: Desktop agent tests (platform detection)
+        run: npm test -w @tracker/desktop-agent
+      - name: Desktop agent renderer build
+        run: npm run build:renderer -w @tracker/desktop-agent
+      - name: Desktop agent syntax check
+        shell: bash
+        run: |
+          for f in $(find desktop-agent/src/main desktop-agent/src/services desktop-agent/src/utils -name '*.js' -o -name '*.cjs'); do
+            node --check "$f"
+          done
+
+  python:
+    name: Python · ${{ matrix.service }} · ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        service: [ai-service, analysis-agent, camera-agent]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: ${{ matrix.service }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: ${{ matrix.service }}/requirements.txt
+      - run: pip install -r requirements.txt
+      - run: python -m pytest -q

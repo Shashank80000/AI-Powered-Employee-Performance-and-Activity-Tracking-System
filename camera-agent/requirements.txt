@@ -1,0 +1,6 @@
+anthropic>=1.11.0
+httpx>=0.27.0
+pydantic>=2.7.0
+# 4.x: OpenCV 5 moved the Haar face cascades out of the main package
+opencv-python-headless>=4.10,<5
+pytest>=8.0.0

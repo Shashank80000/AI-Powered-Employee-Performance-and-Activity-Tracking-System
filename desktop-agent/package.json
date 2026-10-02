@@ -1,0 +1,40 @@
+{
+  "name": "@tracker/desktop-agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "WorkPlus desktop activity agent: privacy-first, counts-and-durations-only activity tracking.",
+  "type": "module",
+  "main": "src/main/main.js",
+  "scripts": {
+    "dev": "concurrently -k -n vite,electron \"vite\" \"wait-on tcp:5174 && cross-env VITE_DEV_SERVER_URL=http://localhost:5174 electron .\"",
+    "build:renderer": "vite build",
+    "start": "electron .",
+    "dist": "npm run build:renderer && electron-builder --config electron-builder.yml",
+    "test": "node --test \"tests/*.test.js\""
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.0",
+    "cross-env": "^7.0.3",
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
+    "vite": "^6.0.7",
+    "wait-on": "^8.0.1"
+  },
+  "optionalDependencies": {
+    "get-windows": "^9.2.0",
+    "uiohook-napi": "^1.5.4"
+  },
+  "author": {
+    "name": "WorkPlus (HMR Institute minor project)",
+    "email": "workplus@example.com"
+  },
+  "homepage": "https://github.com/your-org/ai-employee-performance-tracker",
+  "workplus": {
+    "apiUrl": "http://localhost:4000/api"
+  }
+}

@@ -1,0 +1,53 @@
+WORKPLUS AGENT - MONITORING NOTICE AND AGREEMENT
+
+Please read this before installing. By clicking "I Agree" you confirm that you
+have read and understood it.
+
+1. WHAT THIS SOFTWARE DOES
+WorkPlus Agent measures how working time is spent on this computer and sends
+the results to your organisation's WorkPlus server. Nothing is collected until
+you sign in and confirm your choices in the app's setup screen. After that,
+tracking runs only while you are signed in to the WorkPlus website: signing in
+there starts it, signing out stops it, and you can pause it at any time on the
+website or in this app.
+
+2. WHAT CAN BE COLLECTED (you choose in the app)
+- Activity time (required): minutes active and idle, and a count of mouse movements.
+- Keyboard activity (optional): the NUMBER of key presses per minute. Never which
+  keys, and never anything you type.
+- App names (optional): the name of the app in front (for example "Code") and for
+  how long. Never window titles, documents, websites or URLs.
+- Screenshots (optional, off by default): one picture of your main screen every
+  5 minutes while you are active. Never while tracking is paused, you are idle,
+  or the screen is locked. A notification appears each time one is taken.
+
+3. WHO CAN SEE YOUR DATA
+- Your manager can see your activity totals, app categories, reports and daily
+  analyses.
+- IF YOU TURN SCREENSHOTS ON, YOUR MANAGER AND YOUR ORGANISATION'S ADMINISTRATORS
+  CAN OPEN AND VIEW YOUR SCREENSHOTS. Every time they open one, it is recorded,
+  and you can see who viewed it and when.
+- Screenshots are also labelled automatically (for example "Coding") by an AI
+  service. Only the label is used in reports.
+
+4. YOUR CONTROL
+- You will be asked again, inside the app, to choose what to share. Screenshots
+  require a separate, explicit agreement that your manager may view them.
+- You can pause tracking at any time from the app or the tray icon.
+- You can delete any screenshot in the web dashboard.
+- You can change your choices or withdraw consent at any time in the app's
+  Settings. Turning screenshots off deletes all of your screenshots.
+
+5. HOW LONG DATA IS KEPT
+- Screenshots are deleted automatically 3 days after they were taken.
+- Detailed activity records are deleted after 90 days. Daily totals and reports
+  are kept by your organisation.
+
+6. PERMISSIONS
+Depending on your choices, your operating system may ask you to allow Screen
+Recording or Input Monitoring (macOS). The app only asks for permissions needed
+for the items you turned on.
+
+If you do not agree, click "Cancel" (Windows) or "Disagree" (macOS) and the
+software will not be installed. Speak to your manager or administrator if you
+have questions about how this data is used.

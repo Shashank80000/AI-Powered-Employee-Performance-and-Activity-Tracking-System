@@ -1,0 +1,36 @@
+{
+  "name": "ai-employee-performance-tracker",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Privacy-conscious employee performance and activity tracking platform.",
+  "workspaces": [
+    "client",
+    "server",
+    "desktop-agent"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,client -c cyan,magenta \"npm run dev -w @tracker/server\" \"npm run dev -w @tracker/client\"",
+    "dev:lan": "concurrently -n server,client -c cyan,magenta \"npm run dev -w @tracker/server\" \"npm run dev -w @tracker/client -- --host\"",
+    "dev:server": "npm run dev -w @tracker/server",
+    "dev:client": "npm run dev -w @tracker/client",
+    "dev:agent": "npm run dev -w @tracker/desktop-agent",
+    "agent:publish": "node scripts/publish-agent.mjs",
+    "dev:ai": "cd ai-service && uvicorn app.main:app --reload --port 8000",
+    "seed": "npm run seed -w @tracker/server",
+    "build": "npm run build -w @tracker/client",
+    "test": "npm run test --workspaces --if-present",
+    "analyze": "cd analysis-agent && python -m app.main run"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "allowScripts": {
+    "electron@33.4.11": true,
+    "uiohook-napi@1.5.5": true,
+    "get-windows@9.3.0": true,
+    "esbuild@0.25.12": true
+  }
+}
