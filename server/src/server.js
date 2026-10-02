@@ -1,7 +1,9 @@
+import dns from 'node:dns';
 import { createApp } from './app.js';
 import { connectDatabase, disconnectDatabase } from './config/db.js';
 import { env } from './config/env.js';
 import { purgeExpiredScreenshots } from './services/screenshotService.js';
+dns.setDefaultResultOrder('ipv4first');
 
 try {
   await connectDatabase();
