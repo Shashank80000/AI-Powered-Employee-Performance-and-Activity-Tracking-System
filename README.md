@@ -129,7 +129,22 @@ These are part of the product contract:
 
 ## Deployment
 
-- **client** → Vercel. Set `VITE_API_URL` to the deployed API.
-- **server** → Render. Set the variables from `server/.env.example`, with `CLIENT_ORIGIN` set to the Vercel URL.
-- **ai-service** → Render (Python). Set the server's `AI_SERVICE_URL` to its URL.
-- **desktop-agent** → installers published with `npm run agent:publish` and downloaded from the website's `/download` page. On Render, put `DOWNLOADS_DIR` on a persistent disk, or the installers disappear on each deploy.
+The API and AI service go on **Render** (`render.yaml`), the dashboard on **Vercel** (`client/vercel.json`), and the database on **MongoDB Atlas**.
+
+1. **Atlas**: under Network Access, allow `0.0.0.0/0` (Render's IP addresses change). Copy the connection string.
+2. **Render**: New → **Blueprint** → pick this repo. It creates `workplus-api` and `workplus-ai` and asks for:
+   - `MONGODB_URI`: the Atlas connection string
+   - `CLIENT_ORIGIN`: leave as `https://placeholder.vercel.app` for now
+   - `AI_SERVICE_URL`: the `workplus-ai` URL, e.g. `https://workplus-ai.onrender.com` (fill in after it deploys)
+
+   `JWT_SECRET` and `SERVICE_API_KEY` are generated. `DEMO_MODE` is `false`; set it to `true` in the Render dashboard only for a demo. Check `https://<workplus-api>.onrender.com/api/health` shows `"database":"connected"`.
+3. **Vercel**: Add New → Project → this repo, **Root Directory `client`**, environment variable `VITE_API_URL=https://<workplus-api>.onrender.com` (no `/api`, no trailing slash). Deploy.
+4. **Connect them**: on Render, set `CLIENT_ORIGIN` to the Vercel URL (no trailing slash).
+5. **Demo data** (optional): run `npm run seed` locally with `server/.env` pointing at the same Atlas database.
+
+Every push to `main` redeploys both. Notes:
+
+- Render's free plan sleeps after 15 minutes idle; the first request then takes 30–50 seconds.
+- Its disk is wiped on every deploy, so screenshots and published installers are lost. For real use, add a Render Disk and set `SCREENSHOT_DIR` and `DOWNLOADS_DIR` to folders on it.
+- After changing `VITE_API_URL`, redeploy on Vercel (it is built into the dashboard).
+- **desktop-agent**: publish installers with `npm run agent:publish -- --server https://<workplus-api>.onrender.com`; they appear on the website's `/download` page.

@@ -6,7 +6,9 @@ import { purgeExpiredScreenshots } from './services/screenshotService.js';
 try {
   await connectDatabase();
 } catch (error) {
-  console.error(`Could not connect to MongoDB at ${env.MONGODB_URI}: ${error.message}`);
+  // Hide credentials: the URI is printed to hosting logs.
+  const safeUri = env.MONGODB_URI.replace(/\/\/[^@/]+@/, '//***@');
+  console.error(`Could not connect to MongoDB at ${safeUri}: ${error.message}`);
   process.exit(1);
 }
 

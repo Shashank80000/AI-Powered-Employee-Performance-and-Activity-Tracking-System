@@ -1,0 +1,43 @@
+# Render Blueprint: Dashboard → New → Blueprint → pick this repo.
+# The dashboard (client/) goes on Vercel; see "Deployment" in README.md.
+services:
+  - type: web
+    name: workplus-api
+    runtime: node
+    plan: free
+    rootDir: server
+    buildCommand: npm install --omit=dev
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI # Atlas connection string (asked for on first deploy)
+        sync: false
+      - key: CLIENT_ORIGIN # Vercel URL, e.g. https://workplus.vercel.app (comma-separate several)
+        sync: false
+      - key: AI_SERVICE_URL # https://<workplus-ai>.onrender.com; reports fall back to a basic summary without it
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: SERVICE_API_KEY
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 3d
+      # Set to "true" only for a demo: it signs people in without a password.
+      - key: DEMO_MODE
+        value: "false"
+
+  - type: web
+    name: workplus-ai
+    runtime: python
+    plan: free
+    rootDir: ai-service
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.7"
