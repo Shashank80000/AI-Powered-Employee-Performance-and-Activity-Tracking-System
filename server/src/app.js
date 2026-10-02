@@ -21,7 +21,11 @@ export function createApp() {
   const app = express();
 
   app.disable('x-powered-by');
-  app.use(cors({ origin: env.CLIENT_ORIGIN.split(',').map((origin) => origin.trim()) }));
+  const clientOrigins = new Set([
+    ...env.CLIENT_ORIGIN.split(',').map((origin) => origin.trim()),
+    'https://ai-powered-employee-performance-and.vercel.app'
+  ]);
+  app.use(cors({ origin: [...clientOrigins] }));
   app.use(express.json({ limit: '256kb' }));
 
   app.get('/api/health', (_request, response) => {
