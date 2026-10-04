@@ -21,7 +21,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        # windows-2022: node-gyp 9 (bundled with electron-builder) can't find newer Visual Studio versions.
+        os: [ubuntu-latest, windows-2022, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -37,6 +38,12 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libxtst-dev libxt-dev libx11-dev libxkbfile-dev libpng-dev libxrandr-dev libxinerama-dev
       - run: npm ci
+      # XProtect scans freshly created disk images and keeps them busy, so `hdiutil detach` fails.
+      - name: Stop XProtect from holding disk images
+        if: runner.os == 'macOS'
+        run: |
+          sudo pkill -9 XProtect >/dev/null || true
+          while pgrep XProtect >/dev/null; do sleep 3; done
       - name: Build installers
         shell: bash
         # npm workspaces hoist electron to the root node_modules, where electron-builder doesn't look for it.
@@ -55,7 +62,6 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.CSC_LINK != '' }}
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/upload-artifact@v4
         with:
           name: workplus-agent-${{ runner.os }}
