@@ -29,6 +29,10 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      # node-gyp 9 (used by electron-builder to rebuild native modules) imports distutils, removed in Python 3.12.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
       - name: Linux build dependencies for native modules
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libxtst-dev libxt-dev libx11-dev libxkbfile-dev libpng-dev
