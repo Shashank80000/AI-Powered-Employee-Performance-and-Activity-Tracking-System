@@ -55,10 +55,10 @@ export async function listInstallers(directory = env.DOWNLOADS_DIR) {
 }
 
 /** Installers attached to a repository's latest GitHub Release, each with its public downloadUrl. */
-export async function listReleaseInstallers(repo, fetchImpl = fetch) {
-  const response = await fetchImpl(`https://api.github.com/repos/${repo}/releases/latest`, {
-    headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'workplus-server' }
-  });
+export async function listReleaseInstallers(repo, fetchImpl = fetch, token = env.GITHUB_TOKEN) {
+  const headers = { Accept: 'application/vnd.github+json', 'User-Agent': 'workplus-server' };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const response = await fetchImpl(`https://api.github.com/repos/${repo}/releases/latest`, { headers });
   if (response.status === 404) return { version: null, installers: [] };
   if (!response.ok) throw new Error(`GitHub releases request failed with ${response.status}`);
   const release = await response.json();

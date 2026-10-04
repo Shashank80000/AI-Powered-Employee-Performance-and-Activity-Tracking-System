@@ -22,8 +22,11 @@ const schema = z.object({
   SERVICE_API_KEY: z.string().min(32, 'SERVICE_API_KEY must be at least 32 characters').optional(),
   // Desktop agent installers offered on the website's download page (see `npm run agent:publish`).
   DOWNLOADS_DIR: z.string().default(fileURLToPath(new URL('../../storage/downloads', import.meta.url))),
-  // "owner/repo": offer the installers attached to that repository's latest GitHub Release instead of DOWNLOADS_DIR.
+  // "owner/repo": offer the installers attached to that repository's latest GitHub Release instead of DOWNLOADS_DIR
+  // (defaults to RENDER_GIT_REPO_SLUG on Render).
   DOWNLOADS_GITHUB_REPO: z.string().regex(/^[\w.-]+\/[\w.-]+$/, 'Use owner/repo').optional(),
+  // Optional token for the GitHub API (unauthenticated requests are limited to 60 an hour per IP, shared on Render).
+  GITHUB_TOKEN: z.string().optional(),
   SCREENSHOT_DIR: z.string().default(fileURLToPath(new URL('../../storage/screenshots', import.meta.url))),
   SCREENSHOT_INTERVAL_MINUTES: z.coerce.number().int().min(1).max(60).default(5),
   // Every screenshot (image and record) is deleted this many days after it was taken.
@@ -33,6 +36,9 @@ const schema = z.object({
   // Camera observations (labels only, never images) are deleted after this many days.
   CAMERA_RETENTION_DAYS: z.coerce.number().int().min(1).max(90).default(30)
 });
+
+// On Render, offer the installers released from the repository the service deploys from.
+if (process.env.RENDER_GIT_REPO_SLUG) process.env.DOWNLOADS_GITHUB_REPO ??= process.env.RENDER_GIT_REPO_SLUG;
 
 const parsed = schema.safeParse(process.env);
 
