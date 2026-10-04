@@ -1,6 +1,6 @@
 {
   "name": "@tracker/desktop-agent",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "WorkPlus desktop activity agent: privacy-first, counts-and-durations-only activity tracking.",
   "type": "module",
