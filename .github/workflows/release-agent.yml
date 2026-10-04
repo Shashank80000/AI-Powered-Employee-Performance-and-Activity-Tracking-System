@@ -44,7 +44,12 @@ jobs:
           # An empty CSC_LINK (no signing secret) is read as a certificate path and fails the build.
           [ -n "$CSC_LINK" ] || unset CSC_LINK CSC_KEY_PASSWORD
           ELECTRON_VERSION=$(node -p "require('electron/package.json').version")
-          npm run dist -w @tracker/desktop-agent -- "-c.extraMetadata.workplus.apiUrl=$SERVER_URL" "-c.electronVersion=$ELECTRON_VERSION" --publish never
+          set -o pipefail
+          npm run dist -w @tracker/desktop-agent -- "-c.extraMetadata.workplus.apiUrl=$SERVER_URL" "-c.electronVersion=$ELECTRON_VERSION" --publish never 2>&1 | tee build.log || {
+            # Repeat the error lines as annotations, which the run's summary page shows.
+            grep -E '⨯|[Ee]rror' build.log | grep -vE '^\s+at ' | tail -15 | while IFS= read -r line; do echo "::error::$line"; done
+            exit 1
+          }
         env:
           # Unsigned builds unless signing secrets are configured in the repository.
           CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.CSC_LINK != '' }}
