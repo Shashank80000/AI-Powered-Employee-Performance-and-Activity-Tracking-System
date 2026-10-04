@@ -29,6 +29,9 @@ services:
       # Set to "true" only for a demo: it signs people in without a password.
       - key: DEMO_MODE
         value: "false"
+      # The website's /download page offers the installers attached to this repo's latest GitHub Release.
+      - key: DOWNLOADS_GITHUB_REPO
+        value: Shashank80000/AI-Powered-Employee-Performance-and-Activity-Tracking-System
 
   - type: web
     name: workplus-ai

@@ -145,6 +145,6 @@ The API and AI service go on **Render** (`render.yaml`), the dashboard on **Verc
 Every push to `main` redeploys both. Notes:
 
 - Render's free plan sleeps after 15 minutes idle; the first request then takes 30–50 seconds.
-- Its disk is wiped on every deploy, so screenshots and published installers are lost. For real use, add a Render Disk and set `SCREENSHOT_DIR` and `DOWNLOADS_DIR` to folders on it.
+- Its disk is wiped on every deploy, so screenshots are lost. For real use, add a Render Disk and set `SCREENSHOT_DIR` to a folder on it. Installers don't need the disk: `DOWNLOADS_GITHUB_REPO` (set in `render.yaml`) makes the server offer the ones attached to the repository's latest GitHub Release.
 - After changing `VITE_API_URL`, redeploy on Vercel (it is built into the dashboard).
-- **desktop-agent**: publish installers with `npm run agent:publish -- --server https://<workplus-api>.onrender.com`; they appear on the website's `/download` page.
+- **desktop-agent**: push a tag matching `desktop-agent/package.json`'s version (e.g. `git tag v0.1.0 && git push origin v0.1.0`). The **Build desktop agent** workflow builds every installer with the API address built in (repository variable `AGENT_SERVER_URL`, or the Render URL by default) and attaches them to a GitHub Release; they then appear on the website's `/download` page.

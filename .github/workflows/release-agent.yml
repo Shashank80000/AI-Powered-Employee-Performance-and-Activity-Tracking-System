@@ -1,11 +1,19 @@
 # Builds desktop agent installers on each OS: .dmg/.zip (macOS), .exe (Windows), .AppImage/.deb (Linux).
-# Run it from the Actions tab, or push a tag like v0.2.0.
+# Run it from the Actions tab, or push a tag like v0.2.0 (matching desktop-agent/package.json's version)
+# to also attach the installers to a GitHub Release, which the server offers when DOWNLOADS_GITHUB_REPO is set.
 name: Build desktop agent
 
 on:
   workflow_dispatch:
+    inputs:
+      server_url:
+        description: API address built into the agent
+        default: https://ai-powered-employee-performance-and.onrender.com/api
   push:
     tags: ['v*']
+
+env:
+  SERVER_URL: ${{ inputs.server_url || vars.AGENT_SERVER_URL || 'https://ai-powered-employee-performance-and.onrender.com/api' }}
 
 jobs:
   build:
@@ -26,7 +34,11 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libxtst-dev libxt-dev libx11-dev libxkbfile-dev libpng-dev
       - run: npm ci
       - name: Build installers
-        run: npm run dist -w @tracker/desktop-agent
+        shell: bash
+        # npm workspaces hoist electron to the root node_modules, where electron-builder doesn't look for it.
+        run: |
+          ELECTRON_VERSION=$(node -p "require('electron/package.json').version")
+          npm run dist -w @tracker/desktop-agent -- "-c.extraMetadata.workplus.apiUrl=$SERVER_URL" "-c.electronVersion=$ELECTRON_VERSION" --publish never
         env:
           # Unsigned builds unless signing secrets are configured in the repository.
           CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.CSC_LINK != '' }}
@@ -43,3 +55,20 @@ jobs:
             desktop-agent/release/*.AppImage
             desktop-agent/release/*.deb
           if-no-files-found: error
+
+  release:
+    name: GitHub Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: installers
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: installers/*
+          fail_on_unmatched_files: true

@@ -28,6 +28,15 @@ const compareVersions = (a, b) => {
   return 0;
 };
 
+/** Keeps the newest version's installers, in display order. */
+function latestVersion(parsed) {
+  if (parsed.length === 0) return { version: null, installers: [] };
+  const version = parsed.map((item) => item.version).sort(compareVersions).at(-1);
+  const installers = parsed.filter((item) => item.version === version);
+  installers.sort((a, b) => a.platform.localeCompare(b.platform) || Number(b.preferred) - Number(a.preferred) || a.arch.localeCompare(b.arch));
+  return { version, installers };
+}
+
 /** Installers of the newest version in DOWNLOADS_DIR; older versions left in the folder are ignored. */
 export async function listInstallers(directory = env.DOWNLOADS_DIR) {
   let files;
@@ -36,20 +45,45 @@ export async function listInstallers(directory = env.DOWNLOADS_DIR) {
   } catch {
     return { version: null, installers: [] };
   }
-  const parsed = files.map(parseInstallerName).filter(Boolean);
-  if (parsed.length === 0) return { version: null, installers: [] };
-
-  const version = parsed.map((item) => item.version).sort(compareVersions).at(-1);
-  const latest = parsed.filter((item) => item.version === version);
-  const installers = await Promise.all(
-    latest.map(async (item) => ({ ...item, bytes: (await stat(path.join(directory, item.file))).size }))
+  const parsed = await Promise.all(
+    files
+      .map(parseInstallerName)
+      .filter(Boolean)
+      .map(async (item) => ({ ...item, bytes: (await stat(path.join(directory, item.file))).size }))
   );
-  installers.sort((a, b) => a.platform.localeCompare(b.platform) || Number(b.preferred) - Number(a.preferred) || a.arch.localeCompare(b.arch));
-  return { version, installers };
+  return latestVersion(parsed);
 }
 
-/** Absolute path of a listed installer, or null. Only names from the listing are served (no path traversal). */
-export async function installerPath(file, directory = env.DOWNLOADS_DIR) {
-  const { installers } = await listInstallers(directory);
-  return installers.some((item) => item.file === file) ? path.join(directory, file) : null;
+/** Installers attached to a repository's latest GitHub Release, each with its public downloadUrl. */
+export async function listReleaseInstallers(repo, fetchImpl = fetch) {
+  const response = await fetchImpl(`https://api.github.com/repos/${repo}/releases/latest`, {
+    headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'workplus-server' }
+  });
+  if (response.status === 404) return { version: null, installers: [] };
+  if (!response.ok) throw new Error(`GitHub releases request failed with ${response.status}`);
+  const release = await response.json();
+  const parsed = (release.assets ?? [])
+    .map((asset) => {
+      const item = parseInstallerName(asset.name);
+      return item && { ...item, bytes: asset.size, downloadUrl: asset.browser_download_url };
+    })
+    .filter(Boolean);
+  return latestVersion(parsed);
+}
+
+// GitHub allows 60 unauthenticated API requests an hour per IP, so remember the release for a while.
+const RELEASE_CACHE_MS = 5 * 60 * 1000;
+let releaseCache = { at: 0, value: null };
+
+/** The installers the website offers: from the GitHub Release when DOWNLOADS_GITHUB_REPO is set, else DOWNLOADS_DIR. */
+export async function currentInstallers() {
+  if (!env.DOWNLOADS_GITHUB_REPO) return listInstallers();
+  if (releaseCache.value && Date.now() - releaseCache.at < RELEASE_CACHE_MS) return releaseCache.value;
+  try {
+    releaseCache = { at: Date.now(), value: await listReleaseInstallers(env.DOWNLOADS_GITHUB_REPO) };
+  } catch (error) {
+    console.warn(`Could not list GitHub Release installers: ${error.message}`);
+    if (!releaseCache.value) return { version: null, installers: [] };
+  }
+  return releaseCache.value;
 }
