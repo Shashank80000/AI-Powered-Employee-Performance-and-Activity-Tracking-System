@@ -35,6 +35,19 @@ test('lists only the newest version', async () => {
   }
 });
 
+test('lists a universal installer after the per-CPU ones', async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'downloads-'));
+  try {
+    for (const name of ['WorkPlus Agent-0.2.0-win.exe', 'WorkPlus Agent-0.2.0-win-x64.exe', 'WorkPlus Agent-0.2.0-win-arm64.exe']) {
+      await writeFile(path.join(directory, name), 'x');
+    }
+    const { installers } = await listInstallers(directory);
+    assert.deepEqual(installers.map((item) => item.arch), ['arm64', 'x64', 'universal']);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test('a missing folder means no downloads yet', async () => {
   assert.deepEqual(await listInstallers(path.join(tmpdir(), 'does-not-exist-workplus')), { version: null, installers: [] });
 });
@@ -43,11 +56,11 @@ test('lists the newest installers attached to the latest GitHub Release', async 
   const asset = (name, size) => ({ name, size, browser_download_url: `https://github.com/o/r/releases/download/v0.2.0/${encodeURIComponent(name)}` });
   const fakeFetch = async (url) => {
     assert.equal(url, 'https://api.github.com/repos/o/r/releases/latest');
-    return { ok: true, status: 200, json: async () => ({ assets: [asset('WorkPlus Agent-0.2.0-win-x64.exe', 7), asset('WorkPlus Agent-0.2.0-mac-arm64.dmg', 5), asset('latest-mac.yml', 1)] }) };
+    return { ok: true, status: 200, json: async () => ({ assets: [asset('WorkPlus Agent-0.2.0-win.exe', 9), asset('WorkPlus Agent-0.2.0-win-x64.exe', 7), asset('WorkPlus Agent-0.2.0-mac-arm64.dmg', 5), asset('latest-mac.yml', 1)] }) };
   };
   const { version, installers } = await listReleaseInstallers('o/r', fakeFetch);
   assert.equal(version, '0.2.0');
-  assert.deepEqual(installers.map((item) => [item.file, item.bytes]), [['WorkPlus Agent-0.2.0-mac-arm64.dmg', 5], ['WorkPlus Agent-0.2.0-win-x64.exe', 7]]);
+  assert.deepEqual(installers.map((item) => [item.file, item.bytes]), [['WorkPlus Agent-0.2.0-mac-arm64.dmg', 5], ['WorkPlus Agent-0.2.0-win-x64.exe', 7], ['WorkPlus Agent-0.2.0-win.exe', 9]]);
   assert.match(installers[0].downloadUrl, /^https:\/\/github\.com\/o\/r\/releases\/download\//);
 });
 

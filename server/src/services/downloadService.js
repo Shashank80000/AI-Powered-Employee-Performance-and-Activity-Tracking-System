@@ -34,7 +34,9 @@ function latestVersion(parsed) {
   if (parsed.length === 0) return { version: null, installers: [] };
   const version = parsed.map((item) => item.version).sort(compareVersions).at(-1);
   const installers = parsed.filter((item) => item.version === version);
-  installers.sort((a, b) => a.platform.localeCompare(b.platform) || Number(b.preferred) - Number(a.preferred) || a.arch.localeCompare(b.arch));
+  // A universal installer is the larger fallback, so it follows the per-CPU ones.
+  const isUniversal = (item) => Number(item.arch === 'universal');
+  installers.sort((a, b) => a.platform.localeCompare(b.platform) || Number(b.preferred) - Number(a.preferred) || isUniversal(a) - isUniversal(b) || a.arch.localeCompare(b.arch));
   return { version, installers };
 }
 
