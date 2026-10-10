@@ -39,6 +39,9 @@ export default function AppShell({ section, navItems, footerItems = [] }) {
 
   return (
     <div className="app-shell">
+      <a className="skip-link" href="#main-content">
+        Skip to content
+      </a>
       <Sidebar
         navItems={navItems}
         footerItems={footerItems}
@@ -50,7 +53,7 @@ export default function AppShell({ section, navItems, footerItems = [] }) {
       />
       {isMobile && menuOpen && <div className="sidebar-backdrop" onClick={() => setMenuOpen(false)} aria-hidden="true" />}
 
-      <main className="main-content">
+      <main className="main-content" id="main-content" tabIndex={-1}>
         <Topbar section={section} title={current.label} user={user} menuOpen={menuOpen} onOpenMenu={() => setMenuOpen(true)} />
         <div className="page-wrap">
           {demo && <DemoBanner />}

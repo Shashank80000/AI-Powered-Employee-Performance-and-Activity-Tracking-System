@@ -1,11 +1,14 @@
-import { AlertCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, Inbox } from 'lucide-react';
 
 /** Shared loading / error / empty states so every page reports problems the same way. */
 export default function StatusMessage({ loading, error, empty, emptyText = 'Nothing here yet.', onRetry }) {
   if (loading) {
     return (
-      <div className="status-message" role="status">
-        <Loader2 size={18} className="spin" aria-hidden="true" /> Loading…
+      <div className="skeleton" role="status" aria-live="polite">
+        <span className="visually-hidden">Loading…</span>
+        <span aria-hidden="true" />
+        <span aria-hidden="true" />
+        <span aria-hidden="true" />
       </div>
     );
   }
@@ -21,6 +24,13 @@ export default function StatusMessage({ loading, error, empty, emptyText = 'Noth
       </div>
     );
   }
-  if (empty) return <div className="status-message">{emptyText}</div>;
+  if (empty) {
+    return (
+      <div className="status-empty">
+        <Inbox aria-hidden="true" />
+        <p>{emptyText}</p>
+      </div>
+    );
+  }
   return null;
 }

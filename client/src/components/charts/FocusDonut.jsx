@@ -1,23 +1,25 @@
 import { formatHours } from '../../utils/formatters.js';
 
 const SEGMENTS = [
-  { key: 'focusedSeconds', label: 'Focused work', color: 'teal', hex: '#2c9a8f' },
-  { key: 'otherActiveSeconds', label: 'Other active time', color: 'amber', hex: '#d5a145' },
-  { key: 'idleSeconds', label: 'Idle time', color: 'coral', hex: '#e38270' }
+  // Validated categorical order (see tokens.css): each segment keeps its colour whatever its size.
+  { key: 'focusedSeconds', label: 'Focused work', color: 'teal', fill: 'var(--viz-1)' },
+  { key: 'otherActiveSeconds', label: 'Other active time', color: 'blue', fill: 'var(--viz-2)' },
+  { key: 'idleSeconds', label: 'Idle time', color: 'amber', fill: 'var(--viz-3)' }
 ];
 
 export default function FocusDonut({ focus }) {
   const total = SEGMENTS.reduce((sum, { key }) => sum + focus[key], 0);
   let cursor = 0;
-  const stops = SEGMENTS.map(({ key, hex }) => {
+  // A thin surface-coloured gap between segments keeps neighbours apart.
+  const stops = SEGMENTS.filter(({ key }) => focus[key] > 0).flatMap(({ key, fill }) => {
     const start = cursor;
-    cursor += total ? (focus[key] / total) * 100 : 0;
-    return `${hex} ${start}% ${cursor}%`;
+    cursor += (focus[key] / total) * 100;
+    return [`${fill} ${start}% ${Math.max(start, cursor - 0.6)}%`, `var(--color-surface) ${Math.max(start, cursor - 0.6)}% ${cursor}%`];
   });
 
   return (
     <div className="donut-wrap">
-      <div className="donut" style={{ background: total ? `conic-gradient(${stops.join(', ')})` : '#edf0eb' }}>
+      <div className="donut" style={{ background: total ? `conic-gradient(${stops.join(', ')})` : 'var(--color-surface-3)' }}>
         <div>
           <strong>{formatHours(total)}</strong>
           <span>tracked</span>

@@ -1,0 +1,152 @@
+/* Reset, typography, focus and motion defaults. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+html {
+  -webkit-text-size-adjust: 100%;
+}
+body {
+  margin: 0;
+  min-width: 320px;
+  font-family: var(--font-sans);
+  font-size: var(--text-md);
+  line-height: var(--leading);
+  color: var(--color-text);
+  background: var(--color-bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+h1,
+h2,
+h3,
+h4 {
+  line-height: var(--leading-tight);
+  color: var(--color-text);
+}
+p {
+  margin: 0;
+}
+a {
+  color: inherit;
+}
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+button {
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+button:disabled {
+  cursor: not-allowed;
+}
+img,
+svg {
+  vertical-align: middle;
+}
+::selection {
+  background: var(--color-primary-soft-2);
+}
+
+/* One focus treatment everywhere, shown only for keyboard users. */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Utilities */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.muted {
+  color: var(--color-text-3);
+  font-size: var(--text-sm);
+}
+.text-danger {
+  color: var(--color-danger);
+}
+.text-good {
+  color: var(--color-success);
+}
+.text-attention {
+  color: var(--color-warning);
+}
+.text-link,
+.help-content a,
+.notice a,
+.auth-help a {
+  color: var(--color-primary);
+  font-weight: var(--weight-semibold);
+  text-decoration: underline;
+  text-decoration-color: var(--color-primary-soft-2);
+  text-underline-offset: 3px;
+  transition: text-decoration-color var(--duration-fast) var(--ease);
+}
+.text-link:hover,
+.help-content a:hover,
+.notice a:hover,
+.auth-help a:hover {
+  text-decoration-color: currentColor;
+}
+.change-up,
+.positive {
+  color: var(--color-success);
+}
+.change-down,
+.negative {
+  color: var(--color-danger);
+}
+.change-flat {
+  color: var(--color-text-3);
+}
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

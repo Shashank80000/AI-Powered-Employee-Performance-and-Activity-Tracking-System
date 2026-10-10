@@ -24,8 +24,8 @@ export default function MyActivityPage() {
         <>
           <section className="metric-grid">
             <MetricCard label="Active time" value={formatHours(data.activeSeconds)} icon={Clock3} tone="teal" />
-            <MetricCard label="Idle time" value={formatHours(data.idleSeconds)} icon={Coffee} tone="coral" />
-            <MetricCard label="Keyboard events" value={data.keyboardEvents.toLocaleString()} icon={Keyboard} tone="amber" />
+            <MetricCard label="Idle time" value={formatHours(data.idleSeconds)} icon={Coffee} tone="amber" />
+            <MetricCard label="Keyboard events" value={data.keyboardEvents.toLocaleString()} icon={Keyboard} tone="blue" />
             <MetricCard label="Mouse events" value={data.mouseEvents.toLocaleString()} icon={MousePointer2} tone="blue" />
           </section>
           <article className="panel">

@@ -14,7 +14,7 @@ export default function EmployeeTable({ employees, showManager = false, onEdit, 
   const hasActions = Boolean(onEdit || onResetPassword || onDeactivate || onReactivate);
   return (
     <div className="table-wrap">
-      <table>
+      <table className="responsive-table">
         <thead>
           <tr>
             <th scope="col">Employee</th>
@@ -32,7 +32,7 @@ export default function EmployeeTable({ employees, showManager = false, onEdit, 
             const inactive = employee.status === 'inactive';
             return (
               <tr key={employee.id}>
-                <td>
+                <td className="cell-primary">
                   <div className="person">
                     <Avatar name={employee.name} />
                     <div>
@@ -41,18 +41,18 @@ export default function EmployeeTable({ employees, showManager = false, onEdit, 
                     </div>
                   </div>
                 </td>
-                <td>{employee.employeeCode}</td>
-                <td>
+                <td data-label="Code">{employee.employeeCode}</td>
+                <td data-label="Job title">
                   {employee.designation || '—'}
                   {employee.department && <span className="muted"> · {employee.department}</span>}
                 </td>
-                {showManager && <td>{employee.managerName ?? <span className="text-attention">No manager</span>}</td>}
-                <td>
+                {showManager && <td data-label="Manager">{employee.managerName ?? <span className="text-attention">No manager</span>}</td>}
+                <td data-label="Shares">
                   {employee.consent?.acceptedAt
                     ? ['Activity', employee.consent.keyboard && 'keyboard', employee.consent.apps && 'apps', employee.consent.screenshots && 'screenshots'].filter(Boolean).join(', ')
                     : <span title="They haven't signed in to the desktop agent and chosen what to share yet">Agent not set up</span>}
                 </td>
-                <td>
+                <td data-label="Status">
                   <span className={`status ${status.className}`}>
                     <i aria-hidden="true" />
                     {status.label}

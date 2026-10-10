@@ -10,7 +10,7 @@ export default function TeamPerformanceTable({ members }) {
   if (members.length === 0) return <p className="muted">No employees are assigned to you yet.</p>;
   return (
     <div className="table-wrap">
-      <table>
+      <table className="responsive-table">
         <thead>
           <tr>
             <th scope="col">Team member</th>
@@ -24,7 +24,7 @@ export default function TeamPerformanceTable({ members }) {
             const status = STATUS[member.status];
             return (
               <tr key={member.id}>
-                <td>
+                <td className="cell-primary">
                   <div className="person">
                     <Avatar name={member.name} />
                     <div>
@@ -33,7 +33,7 @@ export default function TeamPerformanceTable({ members }) {
                     </div>
                   </div>
                 </td>
-                <td>
+                <td data-label="Productivity">
                   <div className="score">
                     <div className="progress" role="presentation">
                       <span style={{ width: `${member.score}%` }} />
@@ -41,10 +41,10 @@ export default function TeamPerformanceTable({ members }) {
                     <strong>{member.score}%</strong>
                   </div>
                 </td>
-                <td className="task-count">
+                <td className="task-count" data-label="Tasks">
                   {member.tasksCompleted} <span>done</span>
                 </td>
-                <td>
+                <td data-label="Status">
                   <span className={`status ${status.className}`}>
                     <i aria-hidden="true" />
                     {status.label}

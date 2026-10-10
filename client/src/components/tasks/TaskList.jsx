@@ -75,7 +75,7 @@ export default function TaskList({ tasks, reviewer, filter, onFilterChange, onOp
         <p className="status-message">No tasks match {needle ? `"${query.trim()}" in ` : ''}{active.label.toLowerCase()}. Try another filter.</p>
       ) : (
         <div className="table-wrap">
-          <table className="task-table">
+          <table className="task-table responsive-table">
             <thead>
               <tr>
                 <th scope="col">Task</th>
@@ -90,17 +90,17 @@ export default function TaskList({ tasks, reviewer, filter, onFilterChange, onOp
             <tbody>
               {visible.slice(0, shown).map((task) => (
                 <tr key={task.id}>
-                  <td>
+                  <td className="cell-primary">
                     <button className="link-button cell-title" onClick={() => onOpen(task)}>{task.title}</button>
                     {task.description && <span className="cell-sub">{task.description}</span>}
                   </td>
-                  {reviewer && <td>{task.assigneeName}</td>}
-                  <td><span className={`priority priority-${task.priority}`}>{task.priority}</span></td>
-                  <td className={isOverdue(task) ? 'text-danger' : undefined}>{formatDate(task.dueDate)}</td>
-                  <td className={task.actualMinutes > task.expectedMinutes ? 'text-danger' : undefined}>
+                  {reviewer && <td data-label="Assigned to">{task.assigneeName}</td>}
+                  <td data-label="Priority"><span className={`priority priority-${task.priority}`}>{task.priority}</span></td>
+                  <td data-label="Due" className={isOverdue(task) ? 'text-danger' : undefined}>{formatDate(task.dueDate)}</td>
+                  <td data-label="Time (actual / expected)" className={task.actualMinutes > task.expectedMinutes ? 'text-attention' : undefined}>
                     {formatMinutes(task.actualMinutes)} / {formatMinutes(task.expectedMinutes)}
                   </td>
-                  <td><TaskStatusBadge task={task} /></td>
+                  <td data-label="Status"><TaskStatusBadge task={task} /></td>
                   <td className="row-actions">
                     <button className="secondary-button small" onClick={() => onOpen(task)}>{actionLabel(task, reviewer)}</button>
                     {onDelete && (

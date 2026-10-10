@@ -1,0 +1,114 @@
+/*
+ * Design tokens: the only place raw values live. Every other stylesheet uses these roles,
+ * so the palette, type scale and spacing change in one place.
+ *
+ * Direction: "calm ink". Warm paper background, white surfaces with fine borders,
+ * a deep ink-indigo for primary actions and the current page, teal for "productive",
+ * and status colors reserved for status (always paired with a label or icon).
+ */
+:root {
+  color-scheme: light;
+
+  /* Neutrals (warm) */
+  --color-bg: #f6f5f1;
+  --color-surface: #ffffff;
+  --color-surface-2: #faf9f6;
+  --color-surface-3: #f1efe9;
+  --color-border: #e6e3dc;
+  --color-border-strong: #d4d0c6;
+  --color-text: #17181f;
+  --color-text-2: #4a4d5c;
+  --color-text-3: #676a79; /* 5.1:1 on white, 4.7:1 on --color-bg */
+  --color-text-inverse: #ffffff;
+
+  /* Brand */
+  --color-primary: #2f3a8f;
+  --color-primary-hover: #252e78;
+  --color-primary-active: #1e2663;
+  --color-primary-soft: #eceefa;
+  --color-primary-soft-2: #dde1f6;
+  --color-accent: #00796d; /* teal, text-safe */
+  --color-accent-soft: #e1f3ef;
+
+  /* Status: reserved for state, never for decoration */
+  --color-success: #1d7a4c;
+  --color-success-soft: #e3f3e9;
+  --color-warning: #8f5a00; /* text */
+  --color-warning-fill: #c98300;
+  --color-warning-soft: #fbf0d9;
+  --color-danger: #b4382e;
+  --color-danger-soft: #fbe8e5;
+  --color-info: #3c4bb0;
+  --color-info-soft: #eceefa;
+
+  /* Data visualisation: validated categorical order (CVD-safe adjacent, first three all-pairs) */
+  --viz-1: #009485; /* teal: focused / productive */
+  --viz-2: #5560d8; /* indigo: collaboration / other active */
+  --viz-3: #c98300; /* amber: admin / idle */
+  --viz-4: #cf4d84; /* rose: distraction */
+  --viz-neutral: #b3b0a6;
+  --viz-grid: #ebe8e1;
+
+  /* Avatars */
+  --avatar-1: #2f3a8f;
+  --avatar-2: #00796d;
+  --avatar-3: #9a5b13;
+  --avatar-4: #a3406b;
+
+  /* Typography */
+  --font-sans: 'DM Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-md: 14px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+  --text-2xl: 26px;
+  --text-3xl: 34px;
+  --leading-tight: 1.25;
+  --leading: 1.5;
+  --leading-loose: 1.65;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* Spacing (4px grid) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
+  --space-9: 56px;
+  --space-10: 80px;
+
+  /* Shape */
+  --radius-sm: 6px;
+  --radius: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-pill: 999px;
+
+  /* Elevation */
+  --shadow-xs: 0 1px 2px rgba(23, 24, 31, 0.05);
+  --shadow-sm: 0 1px 3px rgba(23, 24, 31, 0.07), 0 1px 2px rgba(23, 24, 31, 0.04);
+  --shadow-md: 0 10px 28px -10px rgba(23, 24, 31, 0.16), 0 2px 6px rgba(23, 24, 31, 0.05);
+  --shadow-lg: 0 28px 60px -18px rgba(23, 24, 31, 0.3), 0 6px 16px rgba(23, 24, 31, 0.08);
+  --focus-ring: 0 0 0 3px rgba(47, 58, 143, 0.28);
+
+  /* Motion */
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --duration-fast: 120ms;
+  --duration: 180ms;
+  --duration-slow: 280ms;
+
+  /* Layout */
+  --sidebar-width: 248px;
+  --topbar-height: 60px;
+  --content-max: 1320px;
+  --control-height: 38px;
+  --control-height-sm: 32px;
+}

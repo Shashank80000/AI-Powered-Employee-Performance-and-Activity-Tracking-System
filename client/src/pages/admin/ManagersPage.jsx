@@ -68,7 +68,7 @@ export default function ManagersPage() {
         )}
         {managers.data?.length > 0 && (
           <div className="table-wrap">
-            <table>
+            <table className="responsive-table">
               <thead>
                 <tr>
                   <th scope="col">Manager</th>
@@ -81,7 +81,7 @@ export default function ManagersPage() {
               <tbody>
                 {managers.data.map((manager) => (
                   <tr key={manager.id}>
-                    <td>
+                    <td className="cell-primary">
                       <div className="person">
                         <Avatar name={manager.name} />
                         <div>
@@ -90,13 +90,13 @@ export default function ManagersPage() {
                         </div>
                       </div>
                     </td>
-                    <td>
+                    <td data-label="Team">
                       <Link className="text-link" to={`/admin/employees?manager=${manager.id}`}>
                         {manager.teamSize} employee{manager.teamSize === 1 ? '' : 's'}
                       </Link>
                     </td>
-                    <td>{manager.lastLoginAt ? formatRelativeTime(manager.lastLoginAt) : 'Never signed in'}</td>
-                    <td>
+                    <td data-label="Last sign-in">{manager.lastLoginAt ? formatRelativeTime(manager.lastLoginAt) : 'Never signed in'}</td>
+                    <td data-label="Status">
                       <span className={`status ${manager.isActive ? 'status-good' : 'status-none'}`}>
                         <i aria-hidden="true" />
                         {manager.isActive ? (manager.mustChangePassword ? 'Active · temporary password' : 'Active') : 'Deactivated'}
