@@ -26,3 +26,7 @@ venv/
 
 # Screenshot images (deleted after analysis)
 server/storage/
+
+# Desktop agent installers downloaded for local use (too big for git)
+downloads/*
+!downloads/README.md
