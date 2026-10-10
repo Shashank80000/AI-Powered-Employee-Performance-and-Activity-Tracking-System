@@ -57,8 +57,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Workflow test
-        run: node --test server/tests/workflow.test.js
+      - name: Workflow and first-run setup tests
+        run: node --test server/tests/workflow.test.js server/tests/setup.test.js
 
   python:
     name: Python · ${{ matrix.service }} · ${{ matrix.os }}
