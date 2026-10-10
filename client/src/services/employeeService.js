@@ -5,4 +5,6 @@ export const getEmployee = (id) => request(`/employees/${id}`).then((data) => da
 export const createEmployee = (employee) => request('/employees', { method: 'POST', body: employee }).then((data) => data.employee);
 export const updateEmployee = (id, changes) => request(`/employees/${id}`, { method: 'PATCH', body: changes }).then((data) => data.employee);
 export const deactivateEmployee = (id) => request(`/employees/${id}`, { method: 'DELETE' });
+export const getMyProfile = (options) => request('/employees/me', options).then((data) => data.employee);
+export const reactivateEmployee = (id) => request(`/employees/${id}/reactivate`, { method: 'POST' }).then((data) => data.employee);
 export const listManagers = () => request('/employees/managers').then((data) => data.managers);

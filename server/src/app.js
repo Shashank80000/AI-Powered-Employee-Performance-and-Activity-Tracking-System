@@ -16,6 +16,7 @@ import reportRoutes from './routes/reportRoutes.js';
 import screenshotRoutes from './routes/screenshotRoutes.js';
 import taskRoutes from './routes/taskRoutes.js';
 import trackingRoutes from './routes/trackingRoutes.js';
+import userRoutes from './routes/userRoutes.js';
 
 export function createApp() {
   const app = express();
@@ -40,6 +41,7 @@ export function createApp() {
   app.use('/api/auth', authRoutes);
   app.use('/api/downloads', downloadRoutes);
   app.use('/api/employees', employeeRoutes);
+  app.use('/api/users', userRoutes);
   app.use('/api/tasks', taskRoutes);
   app.use('/api/activity', activityRoutes);
   app.use('/api/performance', performanceRoutes);

@@ -8,18 +8,27 @@ Every route except `/health` and `/auth/login` needs `Authorization: Bearer <tok
 | --- | --- | --- | --- |
 | GET | `/health` | public | Service and database status |
 | POST | `/auth/login` | public | `{ email, password }` → `{ token, user }` |
-| GET | `/auth/me` | any | Current user |
+| GET | `/auth/me` | any | Current user, with `mustChangePassword` (true after an admin set a temporary password) |
+| POST | `/auth/password` | any | `{ currentPassword, newPassword }`: change own password; clears `mustChangePassword`. Passwords need 8+ characters with a letter and a number |
 | GET | `/auth/demo` | public | `{ enabled, roles }`: whether one-click demo sign-in is available |
 | POST | `/auth/demo` | public | `{ role: admin\|manager\|employee }`: sign in as the seeded demo account. 404 unless `DEMO_MODE=true` |
 | GET | `/employees` | admin, manager | Employees in scope |
 | POST | `/employees` | admin | Create an employee account |
-| GET | `/employees/managers` | admin | Manager accounts, for assignment |
+| GET | `/employees/managers` | admin | Active manager accounts, for assignment |
+| GET | `/employees/me` | employee | Own profile, including `managerName` |
 | GET | `/employees/:id` | any (scoped) | One employee |
-| PATCH | `/employees/:id` | admin, manager | Update profile; only admins can change `manager` |
-| DELETE | `/employees/:id` | admin | Deactivate (account can no longer sign in) |
-| GET | `/tasks?assignedTo=me\|<id>&status=` | any (scoped) | List tasks |
+| PATCH | `/employees/:id` | admin, manager | `{ designation?, department?, status?: active\|on-leave }`; admins also `name` and `manager` (an active manager, or `null`). 409 while deactivated |
+| DELETE | `/employees/:id` | admin | Deactivate (account can no longer sign in; existing sessions stop working) |
+| POST | `/employees/:id/reactivate` | admin | Let a deactivated employee sign in again |
+| GET | `/users/managers` | admin | Every manager, active or not, with `teamSize` and `lastLoginAt` |
+| POST | `/users/managers` | admin | `{ name, email, password }`: create a manager (asked to change the password at first sign-in) |
+| PATCH | `/users/managers/:id` | admin | `{ name?, isActive? }`. Deactivating is refused (409) while the manager still has active employees |
+| POST | `/users/:id/password` | admin | `{ password }`: temporary password for a manager or employee (not admins) |
+| GET | `/tasks?assignedTo=me\|<id>&status=` | any (scoped) | List tasks, each with `history` (comments and review steps) |
 | POST | `/tasks` | admin, manager | Create a task |
-| PATCH | `/tasks/:id` | any (scoped) | Employees: `{ status?, actualMinutesDelta? }`. Managers: any field |
+| PATCH | `/tasks/:id` | any (scoped) | Employees: `{ status?: todo\|in-progress\|review, note?, actualMinutesDelta? }` (`review` records a submission with the note; only managers mark work `done`; 409 once done). Managers: any field |
+| POST | `/tasks/:id/comments` | any (scoped) | `{ text }`: add a comment to the task's history |
+| POST | `/tasks/:id/review` | admin, manager | `{ decision: approve\|changes, comment? }` on a task in `review`: approve → `done`; changes (comment required) → `in-progress` |
 | DELETE | `/tasks/:id` | admin, manager | Delete a task |
 | POST | `/activity/snapshots` | employee | Desktop agent upload (see below) |
 | GET | `/activity?employeeId=&period=` | any (scoped) | Raw snapshots, newest first (max 500) |

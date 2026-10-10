@@ -51,6 +51,8 @@ The one-click buttons appear only when `DEMO_MODE=true` in `server/.env`. **Keep
 | Manager | manager@workplus.dev |
 | Employee | akash@workplus.dev (also shashank@, riya@, mohit@) |
 
+**How it's used:** an administrator creates managers (**Managers**) and employees (**Employees**, choosing each person's manager). New accounts get a temporary password and choose their own at first sign-in. Managers assign tasks to their team; employees start them and submit them for review; managers approve the work or send it back with feedback. The in-app **Help** page (also public at `/help`) is the full user guide, with a permission table and troubleshooting.
+
 ### AI service (optional)
 
 Without it, reports fall back to a basic summary.
@@ -108,7 +110,7 @@ The download endpoints (`GET /api/downloads`, `GET /api/downloads/:file`) are pu
 | `npm run dev:server` / `dev:client` / `dev:agent` | One app on its own |
 | `npm run seed` | Reset the database with demo data |
 | `npm run build` | Production build of the dashboard (`client/dist`) |
-| `npm test` | Server unit tests (AI service: `pytest` inside `ai-service/`) |
+| `npm test` | Server unit tests (AI service: `pytest` inside `ai-service/`). Add `TEST_MONGODB_URI=mongodb://127.0.0.1:27017/workplus_test` to also run the end-to-end admin → manager → employee workflow test, which empties that database |
 | `npm run agent:publish -- --server <address>` | Build the desktop agent installer for this OS and publish it on the website's Download page |
 | `npm run analyze` | Run the analysis agent for today (inside its activated virtualenv) |
 

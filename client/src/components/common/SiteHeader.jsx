@@ -6,7 +6,8 @@ const links = [
   { href: '/#features', label: 'Features' },
   { href: '/#how-it-works', label: 'How it works' },
   { href: '/#roles', label: 'For your role' },
-  { href: '/#download', label: 'Download' }
+  { href: '/#download', label: 'Download' },
+  { href: '/help', label: 'Help' }
 ];
 
 /** Top navigation of the public pages (home and download). */

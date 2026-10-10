@@ -76,3 +76,8 @@ export function todayKey(date = new Date()) {
 export function formatTime(value) {
   return new Date(value).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 }
+
+/** The most useful message from an API error: the first field problem, else the general message. */
+export function errorMessage(error) {
+  return error?.details?.[0]?.message ?? error?.message ?? 'Something went wrong. Please try again.';
+}

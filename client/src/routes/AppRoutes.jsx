@@ -4,10 +4,13 @@ import { useAuth } from '../context/AuthContext.jsx';
 import AdminLayout from '../layouts/AdminLayout.jsx';
 import EmployeeLayout from '../layouts/EmployeeLayout.jsx';
 import ManagerLayout from '../layouts/ManagerLayout.jsx';
+import AccountPage from '../pages/account/AccountPage.jsx';
 import AdminDashboard from '../pages/admin/AdminDashboard.jsx';
 import EmployeesPage from '../pages/admin/EmployeesPage.jsx';
+import ManagersPage from '../pages/admin/ManagersPage.jsx';
 import LoginPage from '../pages/auth/LoginPage.jsx';
 import DownloadPage from '../pages/download/DownloadPage.jsx';
+import HelpPage, { PublicHelpPage } from '../pages/help/HelpPage.jsx';
 import HomePage from '../pages/home/HomePage.jsx';
 import EmployeeDashboard from '../pages/employee/EmployeeDashboard.jsx';
 import MyActivityPage from '../pages/employee/MyActivityPage.jsx';
@@ -33,14 +36,18 @@ export default function AppRoutes() {
       <Route path="/" element={<HomePage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/download" element={<DownloadPage />} />
+      <Route path="/help" element={<PublicHelpPage />} />
 
       <Route element={<ProtectedRoute roles={['admin']} />}>
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<AdminDashboard />} />
+          <Route path="managers" element={<ManagersPage />} />
           <Route path="employees" element={<EmployeesPage />} />
           <Route path="tasks" element={<TasksPage />} />
           <Route path="reports" element={<ReportsPage />} />
           <Route path="analysis" element={<DailyAnalysisPage />} />
+          <Route path="help" element={<HelpPage />} />
+          <Route path="account" element={<AccountPage />} />
         </Route>
       </Route>
 
@@ -51,6 +58,8 @@ export default function AppRoutes() {
           <Route path="tasks" element={<TasksPage />} />
           <Route path="reports" element={<ReportsPage />} />
           <Route path="analysis" element={<DailyAnalysisPage />} />
+          <Route path="help" element={<HelpPage />} />
+          <Route path="account" element={<AccountPage />} />
         </Route>
       </Route>
 
@@ -61,6 +70,8 @@ export default function AppRoutes() {
           <Route path="activity" element={<MyActivityPage />} />
           <Route path="analysis" element={<DailyAnalysisPage personal />} />
           <Route path="screenshots" element={<MyScreenshotsPage />} />
+          <Route path="help" element={<HelpPage />} />
+          <Route path="account" element={<AccountPage />} />
         </Route>
       </Route>
 

@@ -39,6 +39,27 @@ jobs:
             node --check "$f"
           done
 
+  workflow:
+    # Admin → manager → employee workflow and role checks through the real API, against a throwaway MongoDB.
+    name: JS · workflow (API + MongoDB)
+    runs-on: ubuntu-latest
+    services:
+      mongo:
+        image: mongo:7
+        ports: ['27017:27017']
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+      TEST_MONGODB_URI: mongodb://127.0.0.1:27017/workplus_ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Workflow test
+        run: node --test server/tests/workflow.test.js
+
   python:
     name: Python · ${{ matrix.service }} · ${{ matrix.os }}
     strategy:

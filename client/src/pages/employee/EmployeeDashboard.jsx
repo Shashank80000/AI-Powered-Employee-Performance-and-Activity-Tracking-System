@@ -1,6 +1,7 @@
 import { ShieldCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import DashboardOverview from '../../components/dashboard/DashboardOverview.jsx';
+import WorkSummary from '../../components/dashboard/WorkSummary.jsx';
 import PageHeading from '../../components/common/PageHeading.jsx';
 import PeriodSelect from '../../components/common/PeriodSelect.jsx';
 import StatusMessage from '../../components/common/StatusMessage.jsx';
@@ -15,8 +16,9 @@ export default function EmployeeDashboard() {
   return (
     <>
       <PageHeading eyebrow={formatLongDate()} title={`${greeting()}, ${user.name.split(' ')[0]}`} actions={<PeriodSelect value={period} onChange={setPeriod} />}>
-        This is the same data your manager sees about you.
+        Your tasks first, then your activity: the same data your manager sees about you.
       </PageHeading>
+      <WorkSummary basePath="/employee" personal />
       {!data && <StatusMessage loading={loading} error={error} onRetry={reload} />}
       {data && <DashboardOverview dashboard={data} basePath="/employee" personal />}
 

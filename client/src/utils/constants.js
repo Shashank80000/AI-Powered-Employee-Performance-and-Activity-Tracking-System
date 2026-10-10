@@ -17,11 +17,18 @@ export const PERIODS = [
 ];
 
 export const TASK_STATUSES = [
-  { value: 'todo', label: 'To do' },
-  { value: 'in-progress', label: 'In progress' },
-  { value: 'review', label: 'In review' },
-  { value: 'done', label: 'Done' }
+  { value: 'todo', label: 'To do', tone: 'neutral' },
+  { value: 'in-progress', label: 'In progress', tone: 'blue' },
+  { value: 'review', label: 'Waiting for review', tone: 'amber' },
+  { value: 'done', label: 'Done', tone: 'teal' }
 ];
+export const TASK_STATUS_BY_VALUE = Object.fromEntries(TASK_STATUSES.map((status) => [status.value, status]));
+
+/** Past its due date and not yet done. */
+export const isOverdue = (task, now = new Date()) => task.status !== 'done' && Boolean(task.dueDate) && new Date(task.dueDate) < now;
+
+/** The manager's last review sent the task back and the employee hasn't resubmitted yet. */
+export const wasSentBack = (task) => task.status === 'in-progress' && task.history?.findLast((event) => event.kind !== 'comment')?.kind === 'changes-requested';
 
 export const TASK_PRIORITIES = ['low', 'medium', 'high'];
 

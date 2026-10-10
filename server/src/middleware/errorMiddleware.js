@@ -10,6 +10,12 @@ export class HttpError extends Error {
   }
 }
 
+// Plain-language messages for unique fields people fill in.
+const DUPLICATE_MESSAGES = {
+  email: 'An account with this email already exists. Use a different email.',
+  employeeCode: 'This employee code is already in use. Choose a different code.'
+};
+
 export function notFound(request, _response, next) {
   next(new HttpError(404, `Route not found: ${request.method} ${request.originalUrl}`));
 }
@@ -32,7 +38,8 @@ export function errorHandler(error, _request, response, _next) {
     details = Object.values(error.errors).map(({ path, message: issue }) => ({ field: path, message: issue }));
   } else if (error.code === 11000) {
     status = 409;
-    message = `Duplicate value for ${Object.keys(error.keyValue ?? {}).join(', ') || 'unique field'}`;
+    const field = Object.keys(error.keyValue ?? {})[0];
+    message = DUPLICATE_MESSAGES[field] ?? `Duplicate value for ${field ?? 'unique field'}`;
   } else if (error.type === 'entity.parse.failed') {
     status = 400;
     message = 'Malformed JSON body';

@@ -4,6 +4,7 @@ import { env } from '../config/env.js';
 import { User } from '../models/User.js';
 import { signToken } from '../middleware/authMiddleware.js';
 import { HttpError } from '../middleware/errorMiddleware.js';
+import { passwordField } from '../utils/accountRules.js';
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -27,6 +28,24 @@ export async function login(request, response) {
 
 export function me(request, response) {
   response.json({ user: request.user.toPublic() });
+}
+
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, 'Enter your current password'),
+  newPassword: passwordField
+});
+
+/** The signed-in person changes their own password; required after an admin set a temporary one. */
+export async function changePassword(request, response) {
+  const { currentPassword, newPassword } = changePasswordSchema.parse(request.body);
+  const user = await User.findById(request.user._id).select('+passwordHash');
+  if (!(await bcrypt.compare(currentPassword, user.passwordHash))) throw new HttpError(400, 'Your current password is not correct');
+  if (currentPassword === newPassword) throw new HttpError(400, 'Choose a new password that is different from the current one');
+
+  user.passwordHash = await bcrypt.hash(newPassword, 12);
+  user.mustChangePassword = false;
+  await user.save();
+  response.json({ user: user.toPublic() });
 }
 
 // Seeded demo accounts (see scripts/seed.js), one per role.

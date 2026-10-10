@@ -3,7 +3,16 @@ import { NavLink } from 'react-router-dom';
 import { ROLE_LABELS } from '../../utils/constants.js';
 import Avatar from './Avatar.jsx';
 
-export default function Sidebar({ navItems, user, open, hidden, onClose, onLogout }) {
+function NavItems({ items, onClose }) {
+  return items.map(({ label, to, icon: Icon, end }) => (
+    <NavLink key={to} to={to} end={end} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={onClose}>
+      <Icon size={18} aria-hidden="true" />
+      <span>{label}</span>
+    </NavLink>
+  ));
+}
+
+export default function Sidebar({ navItems, footerItems = [], user, open, hidden, onClose, onLogout }) {
   return (
     <aside id="primary-sidebar" className={`sidebar ${open ? 'sidebar-open' : ''}`} inert={hidden}>
       <div className="brand-row">
@@ -21,12 +30,13 @@ export default function Sidebar({ navItems, user, open, hidden, onClose, onLogou
 
       <nav className="primary-nav" aria-label="Primary navigation">
         <p className="nav-caption">Workspace</p>
-        {navItems.map(({ label, to, icon: Icon, end }) => (
-          <NavLink key={to} to={to} end={end} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={onClose}>
-            <Icon size={18} aria-hidden="true" />
-            <span>{label}</span>
-          </NavLink>
-        ))}
+        <NavItems items={navItems} onClose={onClose} />
+        {footerItems.length > 0 && (
+          <>
+            <p className="nav-caption nav-caption-gap">Support</p>
+            <NavItems items={footerItems} onClose={onClose} />
+          </>
+        )}
       </nav>
 
       <div className="sidebar-footer">
@@ -35,8 +45,9 @@ export default function Sidebar({ navItems, user, open, hidden, onClose, onLogou
           <strong>{user.name}</strong>
           <span>{ROLE_LABELS[user.role]}</span>
         </div>
-        <button className="icon-button sidebar-logout" onClick={onLogout} aria-label="Sign out" title="Sign out">
-          <LogOut size={16} />
+        <button className="sidebar-logout" onClick={onLogout} title="Sign out of this website">
+          <LogOut size={16} aria-hidden="true" />
+          <span>Sign out</span>
         </button>
       </div>
     </aside>

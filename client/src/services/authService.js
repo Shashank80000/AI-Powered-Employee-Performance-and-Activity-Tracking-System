@@ -7,6 +7,12 @@ export async function login(email, password) {
   return user;
 }
 
+/** Changes the signed-in person's password and returns the updated user. */
+export async function changePassword(currentPassword, newPassword) {
+  const { user } = await request('/auth/password', { method: 'POST', body: { currentPassword, newPassword } });
+  return user;
+}
+
 export async function getCurrentUser() {
   if (!tokenStore.get()) return null;
   const { user } = await request('/auth/me');
