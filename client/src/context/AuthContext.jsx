@@ -54,13 +54,20 @@ export function AuthProvider({ children }) {
     return signedIn;
   }, []);
 
+  const setupAdmin = useCallback(async (admin) => {
+    const created = await authService.setupAdmin(admin);
+    setDemo(false);
+    setUser(created);
+    return created;
+  }, []);
+
   const changePassword = useCallback(async (currentPassword, newPassword) => {
     setUser(await authService.changePassword(currentPassword, newPassword));
   }, []);
 
   const value = useMemo(
-    () => ({ user, loading, demo, login, loginDemo, logout, changePassword }),
-    [user, loading, demo, login, loginDemo, logout, changePassword]
+    () => ({ user, loading, demo, login, loginDemo, logout, changePassword, setupAdmin }),
+    [user, loading, demo, login, loginDemo, logout, changePassword, setupAdmin]
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

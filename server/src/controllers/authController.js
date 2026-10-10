@@ -1,10 +1,11 @@
 import bcrypt from 'bcryptjs';
+import mongoose from 'mongoose';
 import { z } from 'zod';
 import { env } from '../config/env.js';
 import { User } from '../models/User.js';
 import { signToken } from '../middleware/authMiddleware.js';
 import { HttpError } from '../middleware/errorMiddleware.js';
-import { passwordField } from '../utils/accountRules.js';
+import { emailField, nameField, passwordField } from '../utils/accountRules.js';
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -24,6 +25,48 @@ export async function login(request, response) {
   await user.save();
 
   response.json({ token: signToken(user), user: user.toPublic() });
+}
+
+// First-run setup: on a database without any administrator, the first visitor creates the administrator account.
+// A marker document with a fixed _id makes the claim atomic, so two simultaneous requests can't both succeed.
+const SETUP_MARKER = 'initial-admin';
+const setupSchema = z.object({ name: nameField, email: emailField, password: passwordField });
+const settings = () => mongoose.connection.collection('settings');
+
+/** Public: whether this installation still needs its first administrator. */
+export async function setupStatus(_request, response) {
+  response.json({ needed: !(await User.exists({ role: 'admin' })) });
+}
+
+/** Public, once: creates the first administrator and signs them in. Refused as soon as any administrator exists. */
+export async function setupAdmin(request, response) {
+  const input = setupSchema.parse(request.body);
+  if (await User.exists({ role: 'admin' })) throw new HttpError(409, 'Setup is already complete. Sign in instead.');
+
+  // No admin exists, so a marker older than any in-flight request is stale (e.g. the admin was deleted from the database).
+  await settings().deleteOne({ _id: SETUP_MARKER, createdAt: { $lt: new Date(Date.now() - 60_000) } });
+  try {
+    await settings().insertOne({ _id: SETUP_MARKER, createdAt: new Date() });
+  } catch (error) {
+    if (error.code === 11000) throw new HttpError(409, 'Setup is already complete. Sign in instead.');
+    throw error;
+  }
+
+  let admin;
+  try {
+    admin = await User.create({
+      name: input.name,
+      email: input.email,
+      passwordHash: await bcrypt.hash(input.password, 12),
+      role: 'admin',
+      lastLoginAt: new Date()
+    });
+  } catch (error) {
+    // Free the marker so setup can be retried, e.g. after "this email already exists".
+    await settings().deleteOne({ _id: SETUP_MARKER });
+    throw error;
+  }
+  response.status(201).json({ token: signToken(admin), user: admin.toPublic() });
 }
 
 export function me(request, response) {

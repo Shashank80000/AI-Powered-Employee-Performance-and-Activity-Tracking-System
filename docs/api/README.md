@@ -8,6 +8,8 @@ Every route except `/health` and `/auth/login` needs `Authorization: Bearer <tok
 | --- | --- | --- | --- |
 | GET | `/health` | public | Service and database status |
 | POST | `/auth/login` | public | `{ email, password }` → `{ token, user }` |
+| GET | `/auth/setup` | public | `{ needed }`: true while no administrator exists |
+| POST | `/auth/setup` | public | `{ name, email, password }`: create the first administrator and sign in → `{ token, user }`. 409 once any administrator exists |
 | GET | `/auth/me` | any | Current user, with `mustChangePassword` (true after an admin set a temporary password) |
 | POST | `/auth/password` | any | `{ currentPassword, newPassword }`: change own password; clears `mustChangePassword`. Passwords need 8+ characters with a letter and a number |
 | GET | `/auth/demo` | public | `{ enabled, roles }`: whether one-click demo sign-in is available |

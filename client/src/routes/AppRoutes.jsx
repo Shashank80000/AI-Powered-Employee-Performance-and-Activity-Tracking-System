@@ -9,6 +9,7 @@ import AdminDashboard from '../pages/admin/AdminDashboard.jsx';
 import EmployeesPage from '../pages/admin/EmployeesPage.jsx';
 import ManagersPage from '../pages/admin/ManagersPage.jsx';
 import LoginPage from '../pages/auth/LoginPage.jsx';
+import SetupPage from '../pages/auth/SetupPage.jsx';
 import DownloadPage from '../pages/download/DownloadPage.jsx';
 import HelpPage, { PublicHelpPage } from '../pages/help/HelpPage.jsx';
 import HomePage from '../pages/home/HomePage.jsx';
@@ -35,6 +36,7 @@ export default function AppRoutes() {
     <Routes>
       <Route path="/" element={<HomePage />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/setup" element={<SetupPage />} />
       <Route path="/download" element={<DownloadPage />} />
       <Route path="/help" element={<PublicHelpPage />} />
 

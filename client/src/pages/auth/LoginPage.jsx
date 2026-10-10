@@ -2,7 +2,7 @@ import { Building2, Sparkles, User, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
-import { getDemoInfo } from '../../services/authService.js';
+import { getDemoInfo, getSetupStatus } from '../../services/authService.js';
 import { ROLE_HOME, ROLE_LABELS } from '../../utils/constants.js';
 
 const DEMO_ICONS = { admin: Building2, manager: Users, employee: User };
@@ -11,10 +11,14 @@ export default function LoginPage() {
   const { user, login, loginDemo } = useAuth();
   const [demoRoles, setDemoRoles] = useState([]);
 
+  const navigate = useNavigate();
   useEffect(() => {
     getDemoInfo().then((info) => setDemoRoles(info.enabled ? info.roles : []));
-  }, []);
-  const navigate = useNavigate();
+    // A brand-new installation has no administrator yet: send the first visitor to create one.
+    getSetupStatus()
+      .then(({ needed }) => needed && navigate('/setup', { replace: true }))
+      .catch(() => {});
+  }, [navigate]);
   const location = useLocation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

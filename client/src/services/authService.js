@@ -38,6 +38,17 @@ export function isDemoSession() {
   }
 }
 
+/** { needed }: true until the first administrator has been created. */
+export const getSetupStatus = () => request('/auth/setup');
+
+/** Creates the first administrator (only possible while none exists) and signs them in. */
+export async function setupAdmin(admin) {
+  const { token, user } = await request('/auth/setup', { method: 'POST', body: admin });
+  tokenStore.set(token);
+  setDemoFlag(false);
+  return user;
+}
+
 /** { enabled, roles: [{ role, description }] } — demo sign-in is only offered when the server allows it. */
 export const getDemoInfo = () => request('/auth/demo').catch(() => ({ enabled: false, roles: [] }));
 

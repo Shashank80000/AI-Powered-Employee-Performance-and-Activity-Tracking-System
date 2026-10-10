@@ -170,6 +170,7 @@ export default function HelpContent({ role, onRoleChange, signedIn }) {
         <ol className="numbered-steps">
           <li><b>Open the website</b> at <a href={origin}>{origin.replace(/^https?:\/\//, '')}</a> and select <b>Open workspace</b>, or go straight to the <Link to="/login">sign-in page</Link>.</li>
           <li><b>Sign in</b> with the work email and temporary password your administrator gave you. There is no self sign-up: accounts are created by an administrator.</li>
+          <li><b>Brand-new site?</b> The very first visit opens <b>Create the administrator</b> instead of Sign in. Whoever completes it becomes the administrator, and the page then closes for good.</li>
           <li><b>Choose your own password</b> when asked. You can change it later on <b>My account</b>.</li>
           <li><b>Use the menu</b> on the left to move between pages. On a phone, open it with the ☰ button at the top left. It only shows the pages your role can use.</li>
           <li><b>Sign out</b> with the <b>Sign out</b> button under your name at the bottom of the menu. On a shared computer, always sign out.</li>

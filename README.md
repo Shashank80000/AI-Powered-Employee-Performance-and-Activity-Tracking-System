@@ -51,6 +51,8 @@ The one-click buttons appear only when `DEMO_MODE=true` in `server/.env`. **Keep
 | Manager | manager@workplus.dev |
 | Employee | akash@workplus.dev (also shashank@, riya@, mohit@) |
 
+**First run:** on a database without any administrator, the sign-in page opens **Create the administrator** (`/setup`), where the first visitor creates the administrator account. It closes as soon as one exists. On a public deployment, complete it right after deploying.
+
 **How it's used:** an administrator creates managers (**Managers**) and employees (**Employees**, choosing each person's manager). New accounts get a temporary password and choose their own at first sign-in. Managers assign tasks to their team; employees start them and submit them for review; managers approve the work or send it back with feedback. The in-app **Help** page (also public at `/help`) is the full user guide, with a permission table and troubleshooting.
 
 ### AI service (optional)
