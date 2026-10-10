@@ -2,8 +2,9 @@ import { readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { env } from '../config/env.js';
 
-// electron-builder names installers "<productName>-<version>-<os>-<arch>.<ext>" (see desktop-agent/electron-builder.yml).
-const INSTALLER_NAME = /^(?<product>.+)-(?<version>\d+\.\d+\.\d+(?:-[\w.]+)?)-(?<os>mac|win|linux)-(?<arch>x64|arm64|x86_64|aarch64|amd64)\.(?<ext>dmg|zip|exe|AppImage|deb)$/;
+// electron-builder names installers "<productName>-<version>-<os>-<arch>.<ext>" (see desktop-agent/electron-builder.yml),
+// and leaves out the arch for an installer that covers several, such as the combined x64 + ARM Windows one.
+const INSTALLER_NAME = /^(?<product>.+)-(?<version>\d+\.\d+\.\d+(?:-[\w.]+)?)-(?<os>mac|win|linux)(?:-(?<arch>x64|arm64|x86_64|aarch64|amd64))?\.(?<ext>dmg|zip|exe|AppImage|deb)$/;
 
 const PLATFORMS = { mac: 'macos', win: 'windows', linux: 'linux' };
 const ARCHES = { x64: 'x64', x86_64: 'x64', amd64: 'x64', arm64: 'arm64', aarch64: 'arm64' };
@@ -17,7 +18,7 @@ export function parseInstallerName(file) {
   if (!match) return null;
   const { version, os, arch, ext } = match.groups;
   const platform = PLATFORMS[os];
-  return { file, version, platform, arch: ARCHES[arch], format: ext, label: FORMAT_LABELS[ext], preferred: PREFERRED[platform] === ext };
+  return { file, version, platform, arch: arch ? ARCHES[arch] : 'universal', format: ext, label: FORMAT_LABELS[ext], preferred: PREFERRED[platform] === ext };
 }
 
 const compareVersions = (a, b) => {

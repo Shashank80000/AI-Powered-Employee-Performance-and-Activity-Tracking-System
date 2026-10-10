@@ -3,7 +3,7 @@
 export const PLATFORM_LABELS = { macos: 'macOS', windows: 'Windows', linux: 'Linux' };
 export const ARCH_LABELS = {
   macos: { arm64: 'Apple Silicon (M1 or later)', x64: 'Intel' },
-  windows: { x64: '64-bit (most PCs)', arm64: 'ARM' },
+  windows: { x64: '64-bit (most PCs)', arm64: 'ARM', universal: '64-bit and ARM (one installer)' },
   linux: { x64: 'x64', arm64: 'ARM64' }
 };
 
@@ -29,12 +29,12 @@ export async function detectArch(nav = navigator) {
   return null;
 }
 
-/** The best installer for this computer, or null. Unknown Mac CPUs default to Apple Silicon. */
+/** The best installer for this computer, or null. Unknown Mac CPUs default to Apple Silicon; a universal installer covers a missing arch. */
 export function pickInstaller(installers, platform, arch) {
   // Preferred formats first (.dmg, .exe, AppImage), then any other format for that system (e.g. a Windows .zip).
   const candidates = installers.filter((item) => item.platform === platform).sort((a, b) => Number(b.preferred) - Number(a.preferred));
   const wantedArch = arch ?? (platform === 'macos' ? 'arm64' : 'x64');
-  return candidates.find((item) => item.arch === wantedArch) ?? candidates[0] ?? null;
+  return candidates.find((item) => item.arch === wantedArch) ?? candidates.find((item) => item.arch === 'universal') ?? candidates[0] ?? null;
 }
 
 export const archLabel = (item) => ARCH_LABELS[item.platform]?.[item.arch] ?? item.arch;

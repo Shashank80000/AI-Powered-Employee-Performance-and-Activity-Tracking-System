@@ -16,6 +16,7 @@ test('parses electron-builder installer names', () => {
   assert.equal(parseInstallerName('WorkPlus Agent-0.2.0-linux-x86_64.AppImage').arch, 'x64');
   assert.equal(parseInstallerName('WorkPlus Agent-0.2.0-win-x64.exe').preferred, true);
   assert.equal(parseInstallerName('WorkPlus Agent-0.2.0-mac-x64.zip').preferred, false);
+  assert.equal(parseInstallerName('WorkPlus Agent-0.2.0-win.exe').arch, 'universal');
   assert.equal(parseInstallerName('latest-mac.yml'), null);
 });
 
