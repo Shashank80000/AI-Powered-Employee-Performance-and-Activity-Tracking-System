@@ -1,11 +1,12 @@
 import { z } from 'zod';
+import { dateKey } from '../utils/accountRules.js';
 import { DailyAnalysis } from '../models/DailyAnalysis.js';
 import { employeeForRequest } from '../middleware/roleMiddleware.js';
 import { addDays, dayStart, startOfDay, toDateKey } from '../utils/dateUtils.js';
 
 const querySchema = z.object({
   employeeId: z.string().optional(),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional()
+  date: dateKey.optional()
 });
 
 export function toAnalysisResponse(analysis) {

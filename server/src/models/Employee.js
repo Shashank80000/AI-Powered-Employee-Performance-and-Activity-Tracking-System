@@ -18,7 +18,10 @@ const consentSchema = new mongoose.Schema(
 const employeeSchema = new mongoose.Schema(
   {
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
-    employeeCode: { type: String, required: true, unique: true, trim: true },
+    // Same as the account's organization; empty for the original organization.
+    organization: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization', index: true },
+    // Unique within the organization, ignoring case (index below; created on existing databases by config/migrations.js).
+    employeeCode: { type: String, required: true, trim: true },
     designation: { type: String, trim: true },
     department: { type: String, trim: true },
     // The manager's User id. Managers may only see employees assigned to them.
@@ -48,10 +51,18 @@ const employeeSchema = new mongoose.Schema(
       changedAt: { type: Date, default: Date.now },
       changedBy: { type: String, enum: ['web', 'agent', 'system'], default: 'system' }
     },
+    // Every start, pause and stop (oldest first, the latest 500), so an upload can be checked against the state at
+    // the time it was captured, not only the current one. `previous` is the state just before the change.
+    trackingHistory: {
+      type: [{ state: String, previous: String, at: Date, _id: false }],
+      default: []
+    },
     // Last time the desktop agent checked in, so the website can show whether it's running.
     agentLastSeenAt: Date
   },
   { timestamps: true }
 );
+
+employeeSchema.index({ organization: 1, employeeCode: 1 }, { unique: true, collation: { locale: 'en', strength: 2 } });
 
 export const Employee = mongoose.model('Employee', employeeSchema);

@@ -1,8 +1,8 @@
 import Avatar from '../common/Avatar.jsx';
 
 const STATUS = {
-  'on-track': { label: 'On track', className: 'status-good' },
-  'needs-focus': { label: 'Needs focus', className: 'status-attention' },
+  'on-track': { label: 'Steady activity', className: 'status-good' },
+  'needs-focus': { label: 'Low activity', className: 'status-attention' },
   'no-data': { label: 'No data yet', className: 'status-none' }
 };
 
@@ -14,7 +14,7 @@ export default function TeamPerformanceTable({ members }) {
         <thead>
           <tr>
             <th scope="col">Team member</th>
-            <th scope="col">Productivity</th>
+            <th scope="col">Activity score</th>
             <th scope="col">Tasks</th>
             <th scope="col">Status</th>
           </tr>
@@ -33,7 +33,7 @@ export default function TeamPerformanceTable({ members }) {
                     </div>
                   </div>
                 </td>
-                <td data-label="Productivity">
+                <td data-label="Activity score">
                   <div className="score">
                     <div className="progress" role="presentation">
                       <span style={{ width: `${member.score}%` }} />

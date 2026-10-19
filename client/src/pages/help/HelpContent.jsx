@@ -200,7 +200,7 @@ export default function HelpContent({ role, onRoleChange, signedIn }) {
                   <td>{STATUS_MEANING[status.value]}</td>
                 </tr>
               ))}
-              <tr><td><span className="category-chip chip-coral">Overdue</span></td><td>Past its due date and not done yet.</td></tr>
+              <tr><td><span className="category-chip chip-coral">Overdue</span></td><td>Past its due date and not submitted yet. Work waiting for review is shown as Waiting for review instead.</td></tr>
               <tr><td><span className="category-chip chip-coral">Changes requested</span></td><td>The manager sent the work back. Open it to read the feedback.</td></tr>
             </tbody>
           </table>

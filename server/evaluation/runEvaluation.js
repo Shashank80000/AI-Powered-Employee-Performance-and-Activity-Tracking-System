@@ -107,7 +107,7 @@ async function partC() {
     const started = Date.now();
     try {
       const reply = await askClaude({ audience: 'manager', analysis, question: c.question });
-      const grounded = groundOutput(reply.output, ctx.facts, { extraNumbers: [7, DUE_SOON_DAYS, ...numbersIn(c.question)], fallbackAnswer: ctx.rules.answer });
+      const grounded = groundOutput(reply.output, ctx.facts, { extraNumbers: [7, DUE_SOON_DAYS], questionNumbers: numbersIn(c.question), fallbackAnswer: ctx.rules.answer });
       const kept = [grounded.answer.text, ...grounded.observations.map((o) => o.statement), ...grounded.recommendations.map((r) => `${r.action} ${r.rationale}`)];
       const cited = new Set([...grounded.answer.factIds, ...grounded.observations.flatMap((o) => o.factIds), ...grounded.recommendations.flatMap((r) => r.factIds)]);
       results.push({

@@ -41,6 +41,8 @@ const schema = z.object({
   // Re-run a request on Anthropic's recommended model when the safety classifier declines it (Claude API only;
   // set false on Bedrock, Vertex or Foundry).
   AGENT_REFUSAL_FALLBACK: z.enum(['true', 'false']).default('true').transform((value) => value === 'true'),
+  // Proxies in front of the API, so rate limits see each visitor's own address: 1 on Render, 0 when run directly.
+  TRUST_PROXY: z.coerce.number().int().min(0).max(5).default(0),
   // Requests to the agent per person per hour (each may call the model once).
   AGENT_RATE_LIMIT_PER_HOUR: z.coerce.number().int().min(1).max(1000).default(30),
   // Shared secret for the analysis agent's internal API. Internal routes are disabled without it.

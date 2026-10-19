@@ -24,8 +24,8 @@ export const TASK_STATUSES = [
 ];
 export const TASK_STATUS_BY_VALUE = Object.fromEntries(TASK_STATUSES.map((status) => [status.value, status]));
 
-/** Past its due date and not yet done. */
-export const isOverdue = (task, now = new Date()) => task.status !== 'done' && Boolean(task.dueDate) && new Date(task.dueDate) < now;
+/** Past its due date and not yet handed in. Submitted work waiting for review is the manager's to act on, not overdue. */
+export const isOverdue = (task, now = new Date()) => !['done', 'review'].includes(task.status) && Boolean(task.dueDate) && new Date(task.dueDate) < now;
 
 /** The manager's last review sent the task back and the employee hasn't resubmitted yet. */
 export const wasSentBack = (task) => task.status === 'in-progress' && task.history?.findLast((event) => event.kind !== 'comment')?.kind === 'changes-requested';

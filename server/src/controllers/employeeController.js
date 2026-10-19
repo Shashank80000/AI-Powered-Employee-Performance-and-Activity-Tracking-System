@@ -3,8 +3,12 @@ import { z } from 'zod';
 import { Employee } from '../models/Employee.js';
 import { User } from '../models/User.js';
 import { employeeScope, findEmployeeInScope } from '../middleware/roleMiddleware.js';
+import { changeTracking } from './trackingController.js';
+import { closeSessions } from '../utils/sessions.js';
+import { EMPLOYEE_CODE_COLLATION } from '../config/migrations.js';
 import { HttpError } from '../middleware/errorMiddleware.js';
 import { emailField, nameField, objectId, passwordField } from '../utils/accountRules.js';
+import { inOrganization, sameOrganization } from '../utils/organization.js';
 
 const optionalText = z.string().trim().max(80, 'Keep this under 80 characters').optional();
 
@@ -29,9 +33,9 @@ const updateSchema = z
   })
   .partial();
 
-/** Throws unless `id` is an active manager account, so employees are never assigned to someone who can't sign in. */
-async function assertActiveManager(id) {
-  if (!(await User.exists({ _id: id, role: 'manager', isActive: true }))) {
+/** Throws unless `id` is an active manager in the admin's organization, so employees are never assigned to someone who can't sign in. */
+async function assertActiveManager(admin, id) {
+  if (!(await User.exists({ _id: id, role: 'manager', isActive: true, ...sameOrganization(admin) }))) {
     throw new HttpError(400, 'Choose an active manager from the list');
   }
 }
@@ -80,8 +84,8 @@ export async function getMyProfile(request, response) {
   response.json({ employee: toResponse(employee) });
 }
 
-export async function listManagers(_request, response) {
-  const managers = await User.find({ role: 'manager', isActive: true }).sort({ name: 1 });
+export async function listManagers(request, response) {
+  const managers = await User.find({ role: 'manager', isActive: true, ...sameOrganization(request.user) }).sort({ name: 1 });
   response.json({ managers: managers.map((manager) => manager.toPublic()) });
 }
 
@@ -93,9 +97,9 @@ export async function getEmployee(request, response) {
 
 export async function createEmployee(request, response) {
   const input = createSchema.parse(request.body);
-  if (input.manager) await assertActiveManager(input.manager);
+  if (input.manager) await assertActiveManager(request.user, input.manager);
   // Check before creating the account, so a taken code doesn't briefly leave an orphan user.
-  if (await Employee.exists({ employeeCode: input.employeeCode })) {
+  if (await Employee.exists({ employeeCode: input.employeeCode, ...sameOrganization(request.user) }).collation(EMPLOYEE_CODE_COLLATION)) {
     throw new HttpError(409, 'This employee code is already in use. Choose a different code.');
   }
 
@@ -104,7 +108,8 @@ export async function createEmployee(request, response) {
     email: input.email,
     passwordHash: await bcrypt.hash(input.password, 12),
     role: 'employee',
-    mustChangePassword: true
+    mustChangePassword: true,
+    ...inOrganization(request.user)
   });
 
   try {
@@ -113,7 +118,8 @@ export async function createEmployee(request, response) {
       employeeCode: input.employeeCode,
       designation: input.designation,
       department: input.department,
-      manager: input.manager
+      manager: input.manager,
+      ...inOrganization(request.user)
     });
     await employee.populate(POPULATE);
     response.status(201).json({ employee: toResponse(employee) });
@@ -134,7 +140,7 @@ export async function updateEmployee(request, response) {
   if (employee.status === 'inactive') throw new HttpError(409, 'Reactivate this employee before editing them');
   // Only a newly chosen manager must be active, so other details stay editable.
   const currentManager = (employee.manager?._id ?? employee.manager)?.toString() ?? null;
-  if (changes.manager && changes.manager !== currentManager) await assertActiveManager(changes.manager);
+  if (changes.manager && changes.manager !== currentManager) await assertActiveManager(request.user, changes.manager);
 
   const { name, ...profile } = changes;
   if (name) await User.updateOne({ _id: employee.user._id }, { name });
@@ -159,7 +165,11 @@ export async function deactivateEmployee(request, response) {
   const employee = await findEmployeeInScope(request.user, request.params.id);
   employee.status = 'inactive';
   // Tracking stays off until they are reactivated and start it again, and their sessions (web and agent) end.
-  employee.tracking = { state: 'stopped', changedAt: new Date(), changedBy: 'system' };
-  await Promise.all([employee.save(), User.updateOne({ _id: employee.user._id }, { isActive: false, $inc: { tokenVersion: 1 } })]);
+  changeTracking(employee, 'stopped', 'system', { force: true });
+  await Promise.all([
+    employee.save(),
+    User.updateOne({ _id: employee.user._id }, { isActive: false, $inc: { tokenVersion: 1 } }),
+    closeSessions(employee.user._id)
+  ]);
   response.status(204).end();
 }

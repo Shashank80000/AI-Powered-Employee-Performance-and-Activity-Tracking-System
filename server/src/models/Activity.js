@@ -15,7 +15,8 @@ const activitySchema = new mongoose.Schema(
   { timestamps: { createdAt: true, updatedAt: false } }
 );
 
-activitySchema.index({ employee: 1, capturedAt: -1 });
+// Unique: one snapshot per moment, so a batch sent twice at once is stored once.
+activitySchema.index({ employee: 1, capturedAt: -1 }, { unique: true });
 // Retention: raw snapshots expire after 90 days; aggregated Performance records are kept.
 activitySchema.index({ createdAt: 1 }, { expireAfterSeconds: 60 * 60 * 24 * 90 });
 

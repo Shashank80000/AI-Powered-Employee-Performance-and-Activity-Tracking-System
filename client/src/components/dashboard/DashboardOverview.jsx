@@ -20,7 +20,7 @@ export default function DashboardOverview({ dashboard, basePath, personal = fals
 
       <section className="content-grid">
         <article className="panel performance-panel">
-          <PanelHeader title={personal ? 'My productivity' : 'Team productivity'} subtitle="Average daily productivity score" actionLabel="View reports" actionTo={personal ? undefined : `${basePath}/reports`} />
+          <PanelHeader title={personal ? 'My activity score' : 'Team activity score'} subtitle="Average daily score from keyboard and mouse activity, time in work apps and tasks delivered on time" actionLabel="View reports" actionTo={personal ? undefined : `${basePath}/reports`} />
           <div className="chart-summary">
             <div>
               <strong>{summary.averageProductivity}%</strong>

@@ -11,7 +11,8 @@ const EVENT_LABELS = {
   submitted: 'submitted the work for review',
   approved: 'approved the work',
   'changes-requested': 'asked for changes',
-  'status-changed': 'changed the status'
+  'status-changed': 'changed the status',
+  updated: 'changed the task'
 };
 
 // A manager can move a task back to these; review and done come from submitting and approving.
@@ -116,7 +117,8 @@ export default function TaskDetails({ task, reviewer, onClose, onChanged }) {
             </button>
           </>
         )}
-        {reviewer && (
+        {/* Submitted work is answered with Approve or Send back (with feedback), not moved silently. */}
+        {reviewer && task.status !== 'review' && (
           <label className="inline-label">
             Change status
             <select

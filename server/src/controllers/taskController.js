@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { Employee } from '../models/Employee.js';
 import { Task, TASK_PRIORITIES, TASK_STATUSES } from '../models/Task.js';
 import { currentEmployee, findEmployeeInScope, visibleEmployeeIds } from '../middleware/roleMiddleware.js';
 import { HttpError } from '../middleware/errorMiddleware.js';
@@ -11,16 +12,23 @@ const listSchema = z.object({
   status: z.enum(TASK_STATUSES).optional()
 });
 
+// A real calendar date: null, 0 or false would otherwise become 1 January 1970.
+const dueDateField = z
+  .union([z.string().min(1), z.date()], { errorMap: () => ({ message: 'Choose a valid due date' }) })
+  .pipe(z.coerce.date({ errorMap: () => ({ message: 'Choose a valid due date' }) }))
+  .refine((date) => date.getUTCFullYear() >= 2000 && date.getUTCFullYear() <= 2100, 'Choose a due date between the years 2000 and 2100');
+
 const createSchema = z.object({
   title: z.string().trim().min(2, 'Enter a task title of at least 2 characters').max(140, 'Keep the title under 140 characters'),
   description: z.string().trim().max(4000, 'Keep the description under 4000 characters').optional(),
   assignedTo: objectId,
   priority: z.enum(TASK_PRIORITIES).optional(),
   expectedMinutes: z.number().int().min(0, 'Expected time cannot be negative').max(100 * 60, 'Expected time is limited to 100 hours').optional(),
-  dueDate: z.coerce.date().optional()
+  dueDate: dueDateField.optional()
 });
 
-const managerUpdateSchema = createSchema.partial().extend({ status: z.enum(TASK_STATUSES).optional() });
+// null removes the due date.
+const managerUpdateSchema = createSchema.partial().extend({ status: z.enum(TASK_STATUSES).optional(), dueDate: dueDateField.nullable().optional() });
 // Managers can move a task back (e.g. reopen approved work). It reaches review only by the employee
 // submitting it, and done only through an approval, so every approval is recorded.
 const MANAGER_STATUSES = ['todo', 'in-progress'];
@@ -34,6 +42,9 @@ const employeeUpdateSchema = z.object({
   note: z.string().trim().max(2000, 'Keep the note under 2000 characters').optional(),
   actualMinutesDelta: z.number().min(0).max(24 * 60).optional()
 });
+const EMPLOYEE_FIELDS = new Set(Object.keys(employeeUpdateSchema.shape));
+// More logged time than this on one task is almost certainly a mistake (about two working months).
+const MAX_ACTUAL_MINUTES = 320 * 60;
 
 const commentSchema = z.object({ text: z.string().trim().min(1, 'Write a comment first').max(2000, 'Keep the comment under 2000 characters') });
 
@@ -66,6 +77,7 @@ function toResponse(task) {
     actualMinutes: Math.round(task.actualMinutes),
     dueDate: task.dueDate,
     completedAt: task.completedAt,
+    submittedAt: task.submittedAt,
     createdAt: task.createdAt,
     updatedAt: task.updatedAt,
     history: (task.history ?? []).map((event) => ({
@@ -133,6 +145,8 @@ export async function createTask(request, response) {
   const input = createSchema.parse(request.body);
   await findAssignableEmployee(request.user, input.assignedTo);
   const task = await Task.create({ ...input, createdBy: request.user._id });
+  // The new task counts towards today and its due date straight away.
+  await recalculateTaskDays(taskDays(task.assignedTo, task));
   await respond(response, task, 201);
 }
 
@@ -141,23 +155,51 @@ export async function updateTask(request, response) {
   const before = { assignedTo: task.assignedTo, dueDate: task.dueDate, completedAt: task.completedAt };
 
   if (request.user.role === 'employee') {
+    // Refuse rather than silently ignore what an employee can't change.
+    const other = Object.keys(request.body ?? {}).filter((field) => !EMPLOYEE_FIELDS.has(field));
+    if (other.length) throw new HttpError(403, `Only your manager can change ${other.join(', ')}. You can change the status, log time and add a note.`);
     const { status, note, actualMinutesDelta } = employeeUpdateSchema.parse(request.body);
+    if (task.status === 'done' && status && status !== task.status) {
+      throw new HttpError(409, 'This task is approved and closed. Ask your manager if it needs more work.');
+    }
     if (status && status !== task.status) {
-      if (task.status === 'done') throw new HttpError(409, 'This task is approved and closed. Ask your manager if it needs more work.');
+      const withdrawn = task.status === 'review';
       task.status = status;
       if (status === 'review') addEvent(task, request.user, 'submitted', note);
+      // Taking back a submission is part of the review record; starting work isn't worth an entry.
+      else if (withdrawn) addEvent(task, request.user, 'status-changed', `Withdrew the submission (moved to ${STATUS_LABELS[status]})${note ? `: ${note}` : ''}`);
+      else if (note) addEvent(task, request.user, 'comment', note);
+    } else if (note) {
+      addEvent(task, request.user, 'comment', note);
     }
-    if (actualMinutesDelta) task.actualMinutes += actualMinutesDelta;
+    // The desktop agent sends the time it measured, also just after an approval (time worked before it). It keeps
+    // and re-sends time the server refuses, so an implausible total is capped here rather than refused.
+    if (actualMinutesDelta) task.actualMinutes = Math.min(task.actualMinutes + actualMinutesDelta, MAX_ACTUAL_MINUTES);
   } else {
     const changes = managerUpdateSchema.parse(request.body);
+    // Submitted and approved work belongs to whoever did it: decide on it first.
+    if (changes.assignedTo && changes.assignedTo !== String(task.assignedTo) && ['review', 'done'].includes(task.status)) {
+      throw new HttpError(409, 'This task was already submitted by its assignee. Approve it or send it back before reassigning it.');
+    }
     if (changes.assignedTo) await findAssignableEmployee(request.user, changes.assignedTo);
     if (changes.status && changes.status !== task.status) {
       if (!MANAGER_STATUSES.includes(changes.status)) {
         throw new HttpError(400, 'Work reaches review when the employee submits it, and is marked done when you approve it');
       }
+      // A submission is answered with Approve or Send back (with feedback), never moved silently.
+      if (task.status === 'review') throw new HttpError(409, 'This task is waiting for your review. Approve it or send it back with feedback.');
       addEvent(task, request.user, 'status-changed', `Moved to ${STATUS_LABELS[changes.status]}`);
     }
-    task.set(changes);
+    if (changes.assignedTo && changes.assignedTo !== String(task.assignedTo)) {
+      const [from, to] = await Promise.all([Employee.findById(task.assignedTo).populate('user', 'name'), Employee.findById(changes.assignedTo).populate('user', 'name')]);
+      addEvent(task, request.user, 'updated', `Reassigned from ${from?.user?.name ?? 'someone'} to ${to?.user?.name ?? 'someone'}`);
+    }
+    if ('dueDate' in changes && String(changes.dueDate ?? '') !== String(task.dueDate ?? '')) {
+      addEvent(task, request.user, 'updated', changes.dueDate ? `Due date set to ${toDateKey(changes.dueDate)}` : 'Due date removed');
+    }
+    const { dueDate, ...rest } = changes;
+    task.set(rest);
+    if ('dueDate' in changes) task.dueDate = dueDate ?? undefined;
   }
 
   const countsChanged = task.isModified('status') || task.isModified('assignedTo') || task.isModified('dueDate');

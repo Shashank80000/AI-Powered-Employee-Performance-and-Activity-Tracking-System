@@ -172,10 +172,14 @@ test('admin, manager and employee workflow with role checks', { skip }, async (t
     assert.equal((await api(employee, 'POST', '/tasks', { title: 'Self-assigned', assignedTo: eve.id })).status, 403);
     assert.equal((await api(employee, 'GET', '/users/managers')).status, 403);
 
+    // Employees can't edit task details: refused, not silently ignored, and nothing changes.
     const sneaky = await api(employee, 'PATCH', `/tasks/${task.id}`, { status: 'in-progress', title: 'Renamed', priority: 'low' });
-    assert.equal(sneaky.status, 200);
-    assert.equal(sneaky.data.task.title, 'Write the onboarding guide', 'employees cannot edit task details');
-    assert.equal(sneaky.data.task.priority, 'high');
+    assert.equal(sneaky.status, 403);
+    assert.match(sneaky.message, /title, priority/);
+    const started = await api(employee, 'PATCH', `/tasks/${task.id}`, { status: 'in-progress' });
+    assert.equal(started.status, 200);
+    assert.equal(started.data.task.title, 'Write the onboarding guide');
+    assert.equal(started.data.task.priority, 'high');
 
     const selfApprove = await api(employee, 'PATCH', `/tasks/${task.id}`, { status: 'done' });
     assert.equal(selfApprove.status, 400);

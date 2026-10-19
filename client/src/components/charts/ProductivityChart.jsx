@@ -51,7 +51,7 @@ export default function ProductivityChart({ points }) {
           <i />
           <i />
         </div>
-        <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} preserveAspectRatio="none" role="img" aria-label={`Daily productivity: ${description}`}>
+        <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} preserveAspectRatio="none" role="img" aria-label={`Daily activity score: ${description}`}>
           <defs>
             <linearGradient id="chartFill" x1="0" x2="0" y1="0" y2="1">
               <stop offset="0%" className="chart-area-fill" stopOpacity=".18" />

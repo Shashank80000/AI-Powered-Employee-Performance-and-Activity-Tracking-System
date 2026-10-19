@@ -23,6 +23,14 @@ export function createApp() {
   const app = express();
 
   app.disable('x-powered-by');
+  // Browsers must use the declared content type (e.g. image/jpeg for screenshots), never guess one from the bytes.
+  app.use((_request, response, next) => {
+    response.set('X-Content-Type-Options', 'nosniff');
+    next();
+  });
+  // Proxies in front of the API (1 on Render), so request.ip is the visitor's address for rate limits. 0 locally:
+  // a client could otherwise choose its own address with an X-Forwarded-For header.
+  app.set('trust proxy', env.TRUST_PROXY);
   const clientOrigins = new Set([
     ...env.CLIENT_ORIGIN.split(',').map((origin) => origin.trim()),
     'https://ai-powered-employee-performance-and.vercel.app'

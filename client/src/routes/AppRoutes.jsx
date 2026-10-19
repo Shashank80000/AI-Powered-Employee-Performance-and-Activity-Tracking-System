@@ -37,6 +37,7 @@ export default function AppRoutes() {
     <Routes>
       <Route path="/" element={<HomePage />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/register" element={<SetupPage />} />
       <Route path="/setup" element={<SetupPage />} />
       <Route path="/download" element={<DownloadPage />} />
       <Route path="/help" element={<PublicHelpPage />} />

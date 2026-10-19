@@ -1,15 +1,16 @@
 import { z } from 'zod';
+import { dateKey } from '../utils/accountRules.js';
 import { env } from '../config/env.js';
 import { Screenshot } from '../models/Screenshot.js';
 import { currentEmployee, findEmployeeInScope, visibleEmployeeIds } from '../middleware/roleMiddleware.js';
 import { HttpError } from '../middleware/errorMiddleware.js';
 import { deleteScreenshot, isJpeg, readImage, recordView, storeScreenshot, toScreenshotResponse } from '../services/screenshotService.js';
 import { CONSENT_VERSION } from './consentController.js';
-import { capturedWhileNotTracking } from './trackingController.js';
+import { uploadTimeProblem } from './trackingController.js';
 import { addDays, dayStart, startOfDay } from '../utils/dateUtils.js';
 
 const MAX_CLOCK_SKEW_MS = 5 * 60 * 1000;
-const dateSchema = z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional() });
+const dateSchema = z.object({ date: dateKey.optional() });
 
 /** Desktop agent upload: raw JPEG body, capture time in X-Captured-At. */
 export async function uploadScreenshot(request, response) {
@@ -27,9 +28,9 @@ export async function uploadScreenshot(request, response) {
     throw new HttpError(400, 'X-Captured-At must be a valid, non-future ISO date');
   }
 
-  if (capturedWhileNotTracking(employee, capturedAt)) {
-    throw new HttpError(409, 'Tracking was paused when this screenshot was taken, so it was not stored');
-  }
+  // Also rejects anything taken during an earlier pause, before consent, or longer ago than the agent could have kept it.
+  const problem = uploadTimeProblem(employee, capturedAt, { consentAt: employee.consent.acceptedAt });
+  if (problem) throw new HttpError(409, `${problem}, so the screenshot was not stored`);
 
   const screenshot = await storeScreenshot(employee, capturedAt, request.body);
   response.status(201).json({ screenshot: { id: screenshot._id.toString(), capturedAt: screenshot.capturedAt } });
@@ -73,7 +74,7 @@ const MANAGER_VIEW_VERSION = 2;
 
 const teamQuerySchema = z.object({
   employeeId: z.string().regex(/^[a-f\d]{24}$/i, 'Invalid employeeId'),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional()
+  date: dateKey.optional()
 });
 
 /** Managers (own team) and admins: one employee's screenshots for a day. Listing is not logged; opening an image is. */

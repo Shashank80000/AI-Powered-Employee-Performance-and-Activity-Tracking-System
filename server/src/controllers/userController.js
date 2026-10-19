@@ -4,13 +4,15 @@ import { Employee } from '../models/Employee.js';
 import { User } from '../models/User.js';
 import { HttpError } from '../middleware/errorMiddleware.js';
 import { emailField, nameField, objectId, passwordField } from '../utils/accountRules.js';
+import { inOrganization, sameOrganization } from '../utils/organization.js';
+import { closeSessions } from '../utils/sessions.js';
 
 const createManagerSchema = z.object({ name: nameField, email: emailField, password: passwordField });
 const updateManagerSchema = z.object({ name: nameField, isActive: z.boolean() }).partial();
 const resetPasswordSchema = z.object({ password: passwordField });
 
-async function findManager(id) {
-  const manager = await User.findOne({ _id: objectId.parse(id), role: 'manager' });
+async function findManager(admin, id) {
+  const manager = await User.findOne({ _id: objectId.parse(id), role: 'manager', ...sameOrganization(admin) });
   if (!manager) throw new HttpError(404, 'Manager not found');
   return manager;
 }
@@ -21,8 +23,8 @@ async function toManagerResponse(manager) {
 }
 
 /** Admin: every manager account, active or not, with the size of their active team. */
-export async function listAllManagers(_request, response) {
-  const managers = await User.find({ role: 'manager' }).sort({ isActive: -1, name: 1 });
+export async function listAllManagers(request, response) {
+  const managers = await User.find({ role: 'manager', ...sameOrganization(request.user) }).sort({ isActive: -1, name: 1 });
   response.json({ managers: await Promise.all(managers.map(toManagerResponse)) });
 }
 
@@ -34,7 +36,8 @@ export async function createManager(request, response) {
     email: input.email,
     passwordHash: await bcrypt.hash(input.password, 12),
     role: 'manager',
-    mustChangePassword: true
+    mustChangePassword: true,
+    ...inOrganization(request.user)
   });
   response.status(201).json({ manager: await toManagerResponse(manager) });
 }
@@ -42,7 +45,7 @@ export async function createManager(request, response) {
 /** Admin: rename, deactivate or reactivate a manager. */
 export async function updateManager(request, response) {
   const changes = updateManagerSchema.parse(request.body);
-  const manager = await findManager(request.params.id);
+  const manager = await findManager(request.user, request.params.id);
 
   if (changes.isActive === false && manager.isActive) {
     const teamSize = await Employee.countDocuments({ manager: manager._id, status: { $ne: 'inactive' } });
@@ -53,13 +56,14 @@ export async function updateManager(request, response) {
   manager.set(changes);
   if (changes.isActive === false) manager.endSessions();
   await manager.save();
+  if (changes.isActive === false) await closeSessions(manager._id);
   response.json({ manager: await toManagerResponse(manager) });
 }
 
 /** Admin: set a temporary password for a manager or employee who can't sign in. Admin passwords are changed by their owner. */
 export async function resetPassword(request, response) {
   const { password } = resetPasswordSchema.parse(request.body);
-  const user = await User.findById(objectId.parse(request.params.id));
+  const user = await User.findOne({ _id: objectId.parse(request.params.id), ...sameOrganization(request.user) });
   if (!user) throw new HttpError(404, 'Account not found');
   if (user.role === 'admin') throw new HttpError(403, 'Administrators change their own password from My account');
 
@@ -68,5 +72,6 @@ export async function resetPassword(request, response) {
   // Whoever was signed in with the old password (including a desktop agent) is signed out.
   user.endSessions();
   await user.save();
+  await closeSessions(user._id);
   response.status(204).end();
 }

@@ -2,6 +2,7 @@ import dns from 'node:dns';
 import { createApp } from './app.js';
 import { connectDatabase, disconnectDatabase } from './config/db.js';
 import { env } from './config/env.js';
+import { runMigrations } from './config/migrations.js';
 import { purgeExpiredScreenshots } from './services/screenshotService.js';
 dns.setDefaultResultOrder('ipv4first');
 
@@ -12,6 +13,12 @@ try {
   const safeUri = env.MONGODB_URI.replace(/\/\/[^@/]+@/, '//***@');
   console.error(`Could not connect to MongoDB at ${safeUri}: ${error.message}`);
   process.exit(1);
+}
+try {
+  await runMigrations();
+} catch (error) {
+  // The API still works without the newer indexes; the upload checks don't depend on them.
+  console.error('Index migration failed:', error.message);
 }
 
 // Screenshots are deleted SCREENSHOT_RETENTION_DAYS after capture: checked at start and hourly.

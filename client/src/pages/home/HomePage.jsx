@@ -10,43 +10,35 @@ import {
   ShieldCheck,
   Sparkles,
   Target,
+  UserPlus,
   Users
 } from 'lucide-react';
-import { useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import SiteHeader from '../../components/common/SiteHeader.jsx';
 import DownloadButton from '../../components/download/DownloadButton.jsx';
 import DownloadOptions from '../../components/download/DownloadOptions.jsx';
 import { useAgentDownloads } from '../../hooks/useAgentDownloads.js';
-import { getSetupStatus } from '../../services/authService.js';
 
 const features = [
   { icon: Users, tone: 'teal', title: 'Role-based workspace', description: 'Separate views for administrators, managers and employees keep every person focused on the data they are allowed to use.' },
   { icon: Target, tone: 'coral', title: 'Task management', description: 'Create, assign and prioritize work, then follow progress from to-do through review and completion.' },
   { icon: Activity, tone: 'blue', title: 'Activity tracking', description: 'Collect active time, idle time, mouse events, keyboard counts and application usage without recording keystroke content.' },
-  { icon: BarChart3, tone: 'amber', title: 'Performance analytics', description: 'Turn activity and task data into productivity scores, trends, focus distribution and team comparisons.' },
-  { icon: Clock3, tone: 'teal', title: 'Expected vs actual time', description: 'Compare planned task duration with real completion time to improve estimates and workload planning.' },
-  { icon: Sparkles, tone: 'coral', title: 'AI insights', description: 'Generate reports, recommendations and unusual-pattern alerts from aggregated performance data.' },
-  { icon: FileText, tone: 'blue', title: 'Reports and analysis', description: 'Review daily, weekly and monthly summaries with a clear audit trail of how each insight was produced.' },
-  { icon: Eye, tone: 'amber', title: 'Optional screenshots', description: 'Screenshots are off by default, permission-based, visible to the right people and automatically retained for only three days.' },
-  { icon: ShieldCheck, tone: 'teal', title: 'Privacy by design', description: 'Consent, pause and resume controls, scoped access, data minimization and audit logging are part of the workflow.' }
+  { icon: BarChart3, tone: 'amber', title: 'Performance analytics', description: 'Turn activity and task data into activity scores, trends, time in work apps and team comparisons. They describe activity and delivery, not how hard someone works.' },
+  { icon: Clock3, tone: 'teal', title: 'Expected vs actual time', description: 'Compare the time planned for each task with the time actually logged on it.' },
+  { icon: Sparkles, tone: 'coral', title: 'AI assistant', description: 'Ask about overdue work, deadlines and sign-in history. The server calculates every number, and each statement shows the records behind it.' },
+  { icon: FileText, tone: 'blue', title: 'Reports and analysis', description: 'Weekly and monthly reports on request, and a daily analysis of each day, each saying how it was produced.' },
+  { icon: Eye, tone: 'amber', title: 'Optional screenshots and camera checks', description: 'Both are off by default and need the person’s consent. Screenshots are deleted after three days; camera checks keep only a label, never an image.' },
+  { icon: ShieldCheck, tone: 'teal', title: 'Privacy by design', description: 'Consent, pause and resume controls, scoped access, data minimization, and a record of every screenshot view are part of the workflow.' }
 ];
 
 const roles = [
   { role: 'Administrator', label: 'Set the system up', description: 'Manage employees, organization-wide tasks, reports and access controls.', tone: 'teal' },
   { role: 'Manager', label: 'Run the team', description: 'Assign work, monitor progress, compare performance and act on insights.', tone: 'coral' },
-  { role: 'Employee', label: 'Own your workday', description: 'See your tasks, activity, reports, consent choices and tracking status.', tone: 'blue' }
+  { role: 'Employee', label: 'Own your workday', description: 'See your tasks, activity, daily analysis, screenshots and tracking status; choose what to share in the desktop agent.', tone: 'blue' }
 ];
 
 export default function HomePage() {
   const downloads = useAgentDownloads();
-  const navigate = useNavigate();
-  // A brand-new installation has no administrator yet: the first visitor creates one before anything else works.
-  useEffect(() => {
-    getSetupStatus()
-      .then(({ needed }) => needed && navigate('/setup', { replace: true }))
-      .catch(() => {});
-  }, [navigate]);
   return (
     <div className="home-page">
       <SiteHeader />
@@ -57,17 +49,25 @@ export default function HomePage() {
             <p className="home-eyebrow"><span /> A clearer way to work together</p>
             <h1>See the work.<br /><em>Improve the way</em> it gets done.</h1>
             <p className="hero-description">WorkPlus brings tasks, privacy-conscious activity signals and meaningful performance insights into one calm workspace for modern teams.</p>
-            <div className="hero-actions"><DownloadButton downloads={downloads} /><Link className="home-secondary-button" to="/login">Open your workspace <ChevronRight size={16} /></Link></div>
+            <div className="hero-actions">
+              
+              <DownloadButton downloads={downloads} />
+              <Link className="home-secondary-button" to="/login">Open your workspace <ChevronRight size={16} /></Link>
+              <Link className="home-primary-button" to="/register">
+                <UserPlus size={16} aria-hidden="true" /> Create admin account
+              </Link>
+            </div>
+            <div className="hero-note"><UserPlus size={16} /><span>Set up your organization in a minute: create an admin account, then add managers and employees.</span></div>
             <div className="hero-note"><ShieldCheck size={16} /><span>No raw keystrokes. No hidden tracking. Consent comes first.</span></div>
           </div>
           <div className="hero-visual" aria-label="Preview of the WorkPlus workspace">
             <div className="visual-glow" />
             <div className="mini-window">
-              <div className="mini-window-top"><span><i /><i /><i /></span><small>team overview</small><span className="mini-live">● live</span></div>
-              <div className="mini-window-heading"><div><small>THURSDAY, 01 OCTOBER</small><strong>Good morning, Sachin <span>✦</span></strong></div><span className="mini-date">This week⌄</span></div>
-              <div className="mini-metrics"><MiniMetric value="84%" label="Productivity" tone="teal" /><MiniMetric value="186h" label="Tracked time" tone="amber" /><MiniMetric value="132" label="Tasks done" tone="coral" /></div>
-              <div className="mini-chart"><div className="mini-chart-header"><strong>Team productivity</strong><span>+12.5%</span></div><svg viewBox="0 0 500 115" preserveAspectRatio="none" role="img" aria-label="Rising productivity chart"><path d="M0,91 C45,94 50,72 93,78 S139,62 180,68 S222,51 266,58 S305,48 350,38 S401,50 444,23 S471,28 500,10 V115 H0Z" style={{ fill: 'var(--color-accent-soft)' }} /><path d="M0,91 C45,94 50,72 93,78 S139,62 180,68 S222,51 266,58 S305,48 350,38 S401,50 444,23 S471,28 500,10" fill="none" style={{ stroke: 'var(--viz-1)' }} strokeWidth="2.5" strokeLinecap="round" /></svg><div className="mini-days"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div></div>
-              <div className="mini-team"><div className="mini-team-heading"><strong>Team performance</strong><span>View all →</span></div>{['Akash Yadav', 'Shashank Pandey', 'Riya Kapoor'].map((name, index) => <div className="mini-person" key={name}><span className={`mini-avatar mini-avatar-${index}`}>{name.split(' ').map((part) => part[0]).join('')}</span><strong>{name}</strong><span className="mini-progress"><i style={{ width: `${94 - index * 8}%` }} /></span><b>{94 - index * 8}%</b></div>)}</div>
+              <div className="mini-window-top"><span><i /><i /><i /></span><small>team overview</small><span className="mini-live">sample</span></div>
+              <div className="mini-window-heading"><div><small>THURSDAY, 01 OCTOBER</small><strong>Good morning, Alex <span>✦</span></strong></div><span className="mini-date">This week⌄</span></div>
+              <div className="mini-metrics"><MiniMetric value="84%" label="Activity score" tone="teal" /><MiniMetric value="186h" label="Tracked time" tone="amber" /><MiniMetric value="132" label="Tasks done" tone="coral" /></div>
+              <div className="mini-chart"><div className="mini-chart-header"><strong>Team activity score</strong><span>+12.5%</span></div><svg viewBox="0 0 500 115" preserveAspectRatio="none" role="img" aria-label="Rising productivity chart"><path d="M0,91 C45,94 50,72 93,78 S139,62 180,68 S222,51 266,58 S305,48 350,38 S401,50 444,23 S471,28 500,10 V115 H0Z" style={{ fill: 'var(--color-accent-soft)' }} /><path d="M0,91 C45,94 50,72 93,78 S139,62 180,68 S222,51 266,58 S305,48 350,38 S401,50 444,23 S471,28 500,10" fill="none" style={{ stroke: 'var(--viz-1)' }} strokeWidth="2.5" strokeLinecap="round" /></svg><div className="mini-days"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div></div>
+              <div className="mini-team"><div className="mini-team-heading"><strong>Team performance</strong><span>View all →</span></div>{['Sam Lee', 'Priya Nair', 'Jordan Park'].map((name, index) => <div className="mini-person" key={name}><span className={`mini-avatar mini-avatar-${index}`}>{name.split(' ').map((part) => part[0]).join('')}</span><strong>{name}</strong><span className="mini-progress"><i style={{ width: `${94 - index * 8}%` }} /></span><b>{94 - index * 8}%</b></div>)}</div>
             </div>
           </div>
         </section>
@@ -84,7 +84,7 @@ export default function HomePage() {
           <p className="download-guide-link"><Link to="/download">Setup guide and first-launch tips <ArrowRight size={14} /></Link></p>
         </section>
 
-        <section className="privacy-section"><div className="privacy-badge"><LockKeyhole size={20} /></div><div><p className="home-eyebrow"><span /> Trust is a product feature</p><h2>Useful data.<br /><em>Respectful by default.</em></h2><p>Activity counts instead of content. Screenshots off by default. Scoped access, explicit consent and automatic retention limits built into the product.</p></div><Link className="privacy-link" to="/login">Read the workspace rules <ArrowRight size={15} /></Link></section>
+        <section className="privacy-section"><div className="privacy-badge"><LockKeyhole size={20} /></div><div><p className="home-eyebrow"><span /> Trust is a product feature</p><h2>Useful data.<br /><em>Respectful by default.</em></h2><p>Activity counts instead of content. Screenshots off by default. Scoped access, explicit consent and automatic retention limits built into the product.</p></div><Link className="privacy-link" to="/help">Read the workspace rules <ArrowRight size={15} /></Link></section>
       </main>
       <footer className="home-footer"><Link to="/" className="home-brand"><span className="brand-mark"><Sparkles size={16} /></span><span><strong>workplus</strong><small>performance OS</small></span></Link><span>AI-powered performance tracking for transparent teams.</span><Link to="/login">Sign in <ArrowRight size={14} /></Link></footer>
     </div>

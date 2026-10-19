@@ -5,20 +5,45 @@ import { startOfDay, toDateKey } from '../utils/dateUtils.js';
 import { recalculateDay } from './performanceService.js';
 import { categorizeApplication } from './productivityService.js';
 
+// Two snapshots may share this much time (clock jitter between intervals) without counting as overlapping.
+const OVERLAP_TOLERANCE_MS = 5 * 1000;
+
 /**
  * Stores a batch of agent snapshots and refreshes the affected daily Performance records.
- * @returns {Promise<number>} number of snapshots stored
+ * A snapshot covers the `intervalSeconds` before its `capturedAt`. Anything already stored (a re-sent batch)
+ * is skipped silently; a snapshot whose time overlaps one already stored or earlier in the batch is rejected,
+ * so the same minutes can't be counted twice.
+ * @returns {Promise<{stored: number, overlapping: number}>}
  */
 export async function recordSnapshots(employee, { snapshots: received, applications: receivedApps = [] }) {
-  // The agent re-sends a batch when an upload times out after the server already stored it. A snapshot is
-  // identified by its capture time (app usage shares it), so anything already stored is skipped, not counted twice.
   const time = (value) => new Date(value).getTime();
-  const stored = await Activity.find({ employee: employee._id, capturedAt: { $in: received.map((snapshot) => new Date(snapshot.capturedAt)) } }, 'capturedAt').lean();
-  const seen = new Set(stored.map(({ capturedAt }) => time(capturedAt)));
-  const resent = new Set(seen);
-  const snapshots = received.filter((snapshot) => !seen.has(time(snapshot.capturedAt)) && seen.add(time(snapshot.capturedAt)));
-  const applications = receivedApps.filter((usage) => !resent.has(time(usage.capturedAt)));
-  if (snapshots.length === 0) return 0;
+  const span = (snapshot) => [time(snapshot.capturedAt) - snapshot.intervalSeconds * 1000, time(snapshot.capturedAt)];
+  const ends = received.map((snapshot) => time(snapshot.capturedAt));
+  // Stored snapshots that could touch this batch (each covers at most an hour).
+  const existing = await Activity.find(
+    { employee: employee._id, capturedAt: { $gte: new Date(Math.min(...ends) - 3600 * 1000), $lte: new Date(Math.max(...ends) + 3600 * 1000) } },
+    'capturedAt intervalSeconds'
+  ).lean();
+  const resent = new Set(existing.map(({ capturedAt }) => time(capturedAt)));
+  const taken = existing.map(span);
+  const overlaps = ([start, end]) => taken.some(([s, e]) => start < e - OVERLAP_TOLERANCE_MS && s < end - OVERLAP_TOLERANCE_MS);
+
+  let overlapping = 0;
+  const snapshots = [];
+  for (const snapshot of [...received].sort((a, b) => time(a.capturedAt) - time(b.capturedAt))) {
+    if (resent.has(time(snapshot.capturedAt))) continue;
+    const interval = span(snapshot);
+    if (overlaps(interval)) {
+      overlapping += 1;
+      continue;
+    }
+    taken.push(interval);
+    snapshots.push(snapshot);
+  }
+  const kept = new Set(snapshots.map((snapshot) => time(snapshot.capturedAt)));
+  // App usage shares its snapshot's capture time: keep only usage belonging to a stored snapshot's interval.
+  const applications = receivedApps.filter((usage) => !resent.has(time(usage.capturedAt)) && (kept.has(time(usage.capturedAt)) || !ends.includes(time(usage.capturedAt))));
+  if (snapshots.length === 0) return { stored: 0, overlapping };
 
   // Time is only logged against the person's own tasks.
   const taskIds = [...new Set(snapshots.map((snapshot) => snapshot.taskId).filter(Boolean))];
@@ -43,12 +68,21 @@ export async function recordSnapshots(employee, { snapshots: received, applicati
     capturedAt: usage.capturedAt
   }));
 
-  await Promise.all([Activity.insertMany(activityDocs), usageDocs.length && ApplicationUsage.insertMany(usageDocs)]);
+  // The unique index on (employee, capturedAt) stops a batch sent twice at the same moment from being stored twice.
+  let insertedActivity = activityDocs;
+  try {
+    await Activity.insertMany(activityDocs, { ordered: false });
+  } catch (error) {
+    if (error.code !== 11000 && !error.writeErrors) throw error;
+    const failed = new Set((error.writeErrors ?? []).map((writeError) => writeError.index ?? writeError.err?.index));
+    insertedActivity = activityDocs.filter((_doc, index) => !failed.has(index));
+  }
+  if (usageDocs.length) await ApplicationUsage.insertMany(usageDocs);
 
   const days = new Map([...activityDocs, ...usageDocs].map(({ capturedAt }) => [toDateKey(capturedAt), startOfDay(capturedAt)]));
   await Promise.all([...days.values()].map((day) => recalculateDay(employee._id, day)));
 
-  return activityDocs.length;
+  return { stored: insertedActivity.length, overlapping };
 }
 
 /** Active/idle totals and top applications for one employee in a date range. */

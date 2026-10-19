@@ -1037,3 +1037,8 @@ tbody tr:last-child td {
   margin-top: calc(var(--space-2) * -1);
   color: var(--color-warning);
 }
+.auth-switch {
+  margin: 0;
+  text-align: center;
+  font-size: var(--text-sm);
+}

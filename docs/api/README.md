@@ -8,8 +8,8 @@ Every route except `/health` and `/auth/login` needs `Authorization: Bearer <tok
 | --- | --- | --- | --- |
 | GET | `/health` | public | Service and database status |
 | POST | `/auth/login` | public | `{ email, password }` → `{ token, user }` |
-| GET | `/auth/setup` | public | `{ needed }`: true while no administrator exists |
-| POST | `/auth/setup` | public | `{ name, email, password }`: create the first administrator and sign in → `{ token, user }`. 409 once any administrator exists |
+| GET | `/auth/setup` | public | `{ needed }`: true while no administrator exists at all |
+| POST | `/auth/register` | public | `{ organizationName, name, email, password }`: create a new organization and its administrator, and sign in → `{ token, user }`. 409 if the email is taken; 429 after 10 registrations an hour from one address. Administrators only see their own organization |
 | POST | `/auth/logout` | any | Records the sign-out time of this token's session (204) |
 | GET | `/auth/me` | any | Current user, with `mustChangePassword` (true after an admin set a temporary password) |
 | POST | `/auth/password` | any | `{ currentPassword, newPassword }`: change own password; clears `mustChangePassword`. Passwords need 8+ characters with a letter and a number |
@@ -34,7 +34,7 @@ Every route except `/health` and `/auth/login` needs `Authorization: Bearer <tok
 | POST | `/agent/runs/:id/feedback` | any (own) | `{ rating: 1-5, comment? }` |
 | GET | `/tasks?assignedTo=me\|<id>&status=` | any (scoped) | List tasks, each with `history` (comments and review steps) |
 | POST | `/tasks` | admin, manager | Create a task |
-| PATCH | `/tasks/:id` | any (scoped) | Employees: `{ status?: todo\|in-progress\|review, note?, actualMinutesDelta? }` (`review` records a submission with the note; only managers mark work `done`; 409 once done). Managers: any field |
+| PATCH | `/tasks/:id` | any (scoped) | Employees: `{ status?: todo\|in-progress\|review, note?, actualMinutesDelta? }` (`review` records a submission with the note; only managers mark work `done`; status changes get 409 once done, but the desktop agent may still log time worked before the approval; total logged time is capped at 320 hours; any other field is refused with 403). Managers: any field; a task in review is answered with `POST /tasks/:id/review`, and submitted or approved work can't be reassigned (409); `dueDate: null` removes the due date |
 | POST | `/tasks/:id/comments` | any (scoped) | `{ text }`: add a comment to the task's history |
 | POST | `/tasks/:id/review` | admin, manager | `{ decision: approve\|changes, comment? }` on a task in `review`: approve → `done`; changes (comment required) → `in-progress` |
 | DELETE | `/tasks/:id` | admin, manager | Delete a task |

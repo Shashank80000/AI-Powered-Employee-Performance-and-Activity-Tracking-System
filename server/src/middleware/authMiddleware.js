@@ -1,7 +1,9 @@
 import { timingSafeEqual } from 'node:crypto';
 import jwt from 'jsonwebtoken';
 import { env } from '../config/env.js';
+import mongoose from 'mongoose';
 import { User } from '../models/User.js';
+import { WorkSession } from '../models/WorkSession.js';
 import { HttpError } from './errorMiddleware.js';
 
 /** The desktop agent identifies itself with this header; its sign-ins last longer (AGENT_JWT_EXPIRES_IN). */
@@ -36,6 +38,11 @@ export async function protect(request, _response, next) {
   // Tokens from before a password change or reset, or a deactivation, no longer count.
   if ((payload.ver ?? 0) !== (user.tokenVersion ?? 0)) {
     throw new HttpError(401, 'Your password or account was changed. Sign in again.', undefined, 'SESSION_ENDED');
+  }
+
+  // Signing out ends the token's sign-in for good, even though the token itself hasn't expired.
+  if (payload.sid && mongoose.isValidObjectId(payload.sid) && (await WorkSession.exists({ _id: payload.sid, logoutAt: { $ne: null } }))) {
+    throw new HttpError(401, 'You signed out. Sign in again.', undefined, 'SESSION_ENDED');
   }
 
   // Enforced here, not only on the website, so the desktop agent and direct API calls follow the same rule.

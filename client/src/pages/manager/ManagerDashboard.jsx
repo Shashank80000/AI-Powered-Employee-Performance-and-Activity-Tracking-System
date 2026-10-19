@@ -25,7 +25,7 @@ export default function ManagerDashboard({ basePath = '/manager', intro }) {
             'There is no data from the previous period to compare with yet.'
           ) : (
             <>
-              Average productivity is <strong>{formatChange(change)}</strong> compared with the previous period.
+              The average activity score is <strong>{formatChange(change)}</strong> compared with the previous period.
             </>
           ))}
       </PageHeading>
