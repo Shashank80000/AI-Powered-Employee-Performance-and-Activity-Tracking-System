@@ -2,8 +2,11 @@ import { z } from 'zod';
 import { env } from '../config/env.js';
 import { HttpError } from '../middleware/errorMiddleware.js';
 import { AgentRun } from '../models/AgentRun.js';
+import { User } from '../models/User.js';
+import { sameOrganization } from '../utils/organization.js';
 import { aiConfigured, getMetrics, runAgent } from '../services/agentService.js';
 import { objectId } from '../utils/accountRules.js';
+import { createLimiter } from '../utils/rateLimit.js';
 
 const scopeSchema = z.object({
   scope: z.enum(['employee', 'team']).default('employee'),
@@ -21,20 +24,8 @@ const feedbackSchema = z.object({
   comment: z.string().trim().max(1000, 'Keep the comment under 1000 characters').optional()
 });
 
-// Requests per person in the last hour. In memory: enough for one server process, resets on restart.
-const recentRequests = new Map();
-const HOUR_MS = 60 * 60 * 1000;
-
-function checkRateLimit(user) {
-  const now = Date.now();
-  const key = user._id.toString();
-  const recent = (recentRequests.get(key) ?? []).filter((at) => now - at < HOUR_MS);
-  if (recent.length >= env.AGENT_RATE_LIMIT_PER_HOUR) {
-    throw new HttpError(429, `You can ask the assistant ${env.AGENT_RATE_LIMIT_PER_HOUR} times an hour. Try again later.`);
-  }
-  recent.push(now);
-  recentRequests.set(key, recent);
-}
+// Answers per person per hour. Refused requests (bad input, someone out of scope) don't count.
+const answers = createLimiter({ limit: env.AGENT_RATE_LIMIT_PER_HOUR, windowMs: 60 * 60 * 1000 });
 
 /** Whether Claude is configured (otherwise answers come from fixed rules). */
 export function status(_request, response) {
@@ -49,13 +40,17 @@ export async function metrics(request, response) {
 /** Runs the agent: verified metrics, then Claude's interpretation, checked against the evidence. */
 export async function ask(request, response) {
   const input = askSchema.parse(request.body ?? {});
-  checkRateLimit(request.user);
-  response.status(201).json(await runAgent(request.user, input));
+  const key = request.user._id.toString();
+  if (answers.exceeded(key)) throw new HttpError(429, `You can ask the assistant ${env.AGENT_RATE_LIMIT_PER_HOUR} times an hour. Try again later.`);
+  const result = await runAgent(request.user, input);
+  answers.hit(key);
+  response.status(201).json(result);
 }
 
-/** Earlier runs: your own, or everyone's for administrators (for evaluation). */
+/** Earlier runs: your own, or everyone's in the organization for administrators (for evaluation). */
 export async function listRuns(request, response) {
-  const filter = request.user.role === 'admin' && request.query.all === 'true' ? {} : { user: request.user._id };
+  const everyone = request.user.role === 'admin' && request.query.all === 'true';
+  const filter = everyone ? { user: { $in: await User.find(sameOrganization(request.user)).distinct('_id') } } : { user: request.user._id };
   const runs = await AgentRun.find(filter)
     .sort({ createdAt: -1 })
     .limit(50)

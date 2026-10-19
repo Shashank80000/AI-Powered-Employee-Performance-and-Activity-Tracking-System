@@ -1,10 +1,10 @@
 # AI agent evaluation
 
-Generated 2026-10-19T11:31:07.851Z from commit 66e86f0 (with uncommitted changes) with `npm run evaluate:agent` in `server/`. Re-run it to refresh this file.
+Generated 2026-10-19T12:57:29.073Z from commit 69eed31 (with uncommitted changes) with `npm run evaluate:agent` in `server/`. Re-run it to refresh this file.
 
 | Part | Result |
 |---|---|
-| A. Calculations and data quality | 77 of 77 checks pass |
+| A. Calculations and data quality | 88 of 88 checks pass |
 | B. Authorization, sessions and API | 10 of 10 cases pass |
 | C. AI model answers | not run |
 
@@ -30,18 +30,19 @@ Four tasks this week: one done on time, one done late, one in progress, one over
 
 ### S2. Overdue and pending tasks
 
-Nothing done: two overdue (one waiting for review), one due in two days, one without a due date.
+Nothing done: two past their due date, of which one is submitted and waiting for review; one due in two days; one without a due date.
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
 | Pending | 4 | 4 | PASS |
-| Overdue | 2 | 2 | PASS |
+| Overdue (not yet submitted) | 1 | 1 | PASS |
+| Past due but waiting for the manager | 1 | 1 | PASS |
 | Waiting for review | 1 | 1 | PASS |
 | Due in the next 3 days | 1 | 1 | PASS |
 | Completion rate % | 0 | 0 | PASS |
-| Overdue evidence names the tasks | Prepare slides, Review contract | Prepare slides, Review contract | PASS |
-| Rules flag the overdue tasks as a concern | true | true | PASS |
-| Rules recommend reviewing the submitted task | true | true | PASS |
+| Overdue evidence names only the unsubmitted task | Prepare slides | Prepare slides | PASS |
+| Rules flag the overdue task as a concern | true | true | PASS |
+| Rules ask the manager to review the late submission | true | true | PASS |
 | Rule-based answer passes the evidence check (rejected claims) | 0 | 0 | PASS |
 
 ### S3. Missing deadlines
@@ -164,6 +165,30 @@ Five active and one idle hour of desktop activity: reported as presence, never a
 | Active hours | 5 | 5 | PASS |
 | Idle hours | 1 | 1 | PASS |
 | Active-hours fact carries the presence note | Recorded presence, not a measure of productive work. | Recorded presence, not a measure of productive work. | PASS |
+| Rule-based answer passes the evidence check (rejected claims) | 0 | 0 | PASS |
+
+### S12. On time is judged at submission
+
+Submitted before the due date but approved two days after it, and one submitted late. Approving late must not make the employee late.
+
+| Check | Expected | Actual | Result |
+|---|---|---|---|
+| Completed | 2 | 2 | PASS |
+| On time (by submission) | 1 | 1 | PASS |
+| Late (by submission) | 1 | 1 | PASS |
+| On-time rate % | 50 | 50 | PASS |
+| Rule-based answer passes the evidence check (rejected claims) | 0 | 0 | PASS |
+
+### S13. Missing logout timestamps
+
+A sign-in from the previous week that was never signed out belongs to that week only, not to this one as well.
+
+| Check | Expected | Actual | Result |
+|---|---|---|---|
+| Not counted this week | 0 | 0 | PASS |
+| No missing sign-out this week | 0 | 0 | PASS |
+| Counted in the week it started | 1 | 1 | PASS |
+| Reported missing there | 1 | 1 | PASS |
 | Rule-based answer passes the evidence check (rejected claims) | 0 | 0 | PASS |
 
 ## Part B: authorization, sessions and API behaviour

@@ -2,7 +2,7 @@ import { formatHours } from '../../utils/formatters.js';
 
 const SEGMENTS = [
   // Validated categorical order (see tokens.css): each segment keeps its colour whatever its size.
-  { key: 'focusedSeconds', label: 'Focused work', color: 'teal', fill: 'var(--viz-1)' },
+  { key: 'focusedSeconds', label: 'Time in work apps', color: 'teal', fill: 'var(--viz-1)' },
   { key: 'otherActiveSeconds', label: 'Other active time', color: 'blue', fill: 'var(--viz-2)' },
   { key: 'idleSeconds', label: 'Idle time', color: 'amber', fill: 'var(--viz-3)' }
 ];

@@ -17,7 +17,7 @@ const TIPS = {
     '': 'This is Neha Verma’s team. Change the period (top right), and compare people in Team performance.',
     employees: 'Your team, and what each person agreed to share from the desktop agent.',
     tasks: 'Assign a task to someone, or filter by status.',
-    reports: 'Generate a report for Riya Kapoor. It’s written from her daily numbers and labelled AI-generated.',
+    reports: 'Generate a report for Riya Kapoor. It’s written automatically from her daily numbers.',
     analysis: 'Pick Akash Yadav or Shashank Pandey to see a sample day. Screenshots appear here once a real desktop agent sends them.'
   },
   employee: {

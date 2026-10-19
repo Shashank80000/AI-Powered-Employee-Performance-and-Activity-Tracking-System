@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 export const TASK_STATUSES = ['todo', 'in-progress', 'review', 'done'];
 export const TASK_PRIORITIES = ['low', 'medium', 'high'];
 // What a history entry records: a plain comment, or a step in the review flow.
-export const TASK_EVENT_KINDS = ['comment', 'submitted', 'approved', 'changes-requested', 'status-changed'];
+export const TASK_EVENT_KINDS = ['comment', 'submitted', 'approved', 'changes-requested', 'status-changed', 'updated'];
 
 const taskEventSchema = new mongoose.Schema(
   {
@@ -29,6 +29,9 @@ const taskSchema = new mongoose.Schema(
     actualMinutes: { type: Number, min: 0, default: 0 },
     dueDate: Date,
     completedAt: Date,
+    // When the employee last submitted it for review. On time means submitted by the due date, so a slow review
+    // never makes the employee late.
+    submittedAt: Date,
     // Comments, submissions and review decisions, oldest first.
     history: { type: [taskEventSchema], default: [] }
   },
@@ -36,7 +39,12 @@ const taskSchema = new mongoose.Schema(
 );
 
 taskSchema.pre('save', function setCompletedAt(next) {
-  if (this.isModified('status')) this.completedAt = this.status === 'done' ? new Date() : undefined;
+  if (this.isModified('status')) {
+    this.completedAt = this.status === 'done' ? new Date() : undefined;
+    // Approval keeps the submission time; sending back or reopening clears it until the next submission.
+    if (this.status === 'review') this.submittedAt = new Date();
+    else if (this.status !== 'done') this.submittedAt = undefined;
+  }
   next();
 });
 

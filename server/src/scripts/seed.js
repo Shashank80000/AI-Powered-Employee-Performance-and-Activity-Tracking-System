@@ -17,6 +17,8 @@ import { Screenshot } from '../models/Screenshot.js';
 import { Task } from '../models/Task.js';
 import { User } from '../models/User.js';
 import { WorkSession } from '../models/WorkSession.js';
+import { AgentRun } from '../models/AgentRun.js';
+import { Organization } from '../models/Organization.js';
 import { recalculateDay } from '../services/performanceService.js';
 import { categorizeApplication } from '../services/productivityService.js';
 import { summarizeCameraDay } from '../utils/cameraSummary.js';
@@ -150,7 +152,7 @@ async function confirmWipe() {
 async function seed() {
   await connectDatabase();
   await confirmWipe();
-  await Promise.all([User, Employee, Task, Activity, ApplicationUsage, Performance, Report, Screenshot, DailyAnalysis, CameraObservation, WorkSession].map((model) => model.deleteMany({})));
+  await Promise.all([User, Employee, Task, Activity, ApplicationUsage, Performance, Report, Screenshot, DailyAnalysis, CameraObservation, WorkSession, AgentRun, Organization].map((model) => model.deleteMany({})));
 
   const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 12);
   const [admin, manager] = await User.create([
@@ -222,14 +224,18 @@ async function seed() {
       const done = dueDate < today && random() < person.focus + 0.1;
       const completedAt = done ? new Date(Math.min(dueDate.getTime() - (random() < person.focus ? 3 : -20) * HOUR_MS, Date.now())) : undefined;
       const expectedMinutes = 120 + Math.floor(random() * 360);
+      const status = done ? 'done' : pick(['todo', 'in-progress', 'review']);
+      const createdAt = new Date(Math.min(dueDate.getTime() - (3 + (index % 4)) * 24 * HOUR_MS, Date.now() - HOUR_MS));
       tasks.push({
         // Assigned a few days before it's due (never in the future). Without this, insertMany would stamp every task
         // as created now, and completed tasks would appear to be finished before they were created.
-        createdAt: new Date(Math.min(dueDate.getTime() - (3 + (index % 4)) * 24 * HOUR_MS, Date.now() - HOUR_MS)),
+        createdAt,
         title: `${pick(taskTitles)} #${index + 1}`,
         assignedTo: employee._id,
         createdBy: manager._id,
-        status: done ? 'done' : pick(['todo', 'in-progress', 'review']),
+        status,
+        // Handed in two hours before approval; work in review was handed in a day after it was assigned.
+        submittedAt: done ? new Date(completedAt.getTime() - 2 * HOUR_MS) : status === 'review' ? new Date(Math.min(createdAt.getTime() + 24 * HOUR_MS, Date.now() - HOUR_MS)) : undefined,
         priority: pick(['low', 'medium', 'high']),
         expectedMinutes,
         actualMinutes: done ? Math.round(expectedMinutes * (0.8 + random() * 0.5)) : Math.round(expectedMinutes * random() * 0.6),

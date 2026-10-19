@@ -65,6 +65,35 @@ test('groundOutput keeps supported claims, removes the rest and replaces an unsu
   assert.deepEqual(result.validation.rejected.map((item) => item.type).sort(), ['answer', 'limitation', 'observation']);
 });
 
+test('digits inside record ids and timestamps are not evidence', () => {
+  const overdue = factById.get('tasks.overdue');
+  const fact = { ...overdue, evidence: [{ ...overdue.evidence[0], id: '6a1f00990000000000008430' }] };
+  const facts1 = new Map([[fact.id, fact]]);
+  assert.match(checkClaim('99 tasks are overdue.', ['tasks.overdue'], facts1), /: 99/);
+  assert.match(checkClaim('8430 tasks are overdue.', ['tasks.overdue'], facts1), /: 8430/);
+  const session = { id: 's', label: 'Sign-ins', value: 1, evidence: [{ id: 'x', signIn: '2026-10-13T09:45:00.000Z' }] };
+  assert.match(checkClaim('45 sign-ins were missing.', ['s'], new Map([['s', session]])), /: 45/);
+});
+
+test('digits in a task title count only when the statement quotes the title', () => {
+  const fact = { id: 't', label: 'Overdue tasks', value: 1, evidence: [{ id: 'a', title: 'Report export #7', status: 'todo' }] };
+  const facts1 = new Map([['t', fact]]);
+  assert.equal(checkClaim('"Report export #7" is overdue.', ['t'], facts1), null);
+  assert.match(checkClaim('7 tasks are overdue.', ['t'], facts1), /: 7/);
+});
+
+test('numbers from the question are allowed in the answer only', () => {
+  const output = {
+    answer: { text: 'Here are the top 5: 1 task is overdue.', factIds: ['tasks.overdue'] },
+    observations: [{ statement: '5 tasks are overdue.', factIds: ['tasks.overdue'], kind: 'concern' }],
+    recommendations: [],
+    limitations: []
+  };
+  const result = groundOutput(output, facts, { questionNumbers: [5], fallbackAnswer });
+  assert.equal(result.validation.answerReplaced, false);
+  assert.equal(result.observations.length, 0);
+});
+
 test('numbers from the question and the period length are allowed', () => {
   assert.equal(checkClaim('Over the last 7 days, 1 task is overdue.', ['tasks.overdue'], factById, [7]), null);
 });

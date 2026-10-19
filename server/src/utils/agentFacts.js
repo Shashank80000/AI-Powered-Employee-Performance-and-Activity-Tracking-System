@@ -27,12 +27,13 @@ export function employeeFacts({ prefix = '', name, code, analysis }) {
     fact(id('tasks.completed'), 'Tasks approved as done in the period', tasks.completed, 'tasks', withEvidence(tasks.evidence.completed)),
     fact(id('tasks.completionRate'), 'Completion rate (done / workload)', tasks.completionRate, '%', smallWorkload),
     fact(id('tasks.pending'), 'Tasks not done yet', tasks.pending, 'tasks', withEvidence(tasks.evidence.pending)),
-    fact(id('tasks.overdue'), 'Pending tasks past their due date', tasks.overdue, 'tasks', withEvidence(tasks.evidence.overdue)),
+    fact(id('tasks.overdue'), 'Tasks past their due date and not yet submitted', tasks.overdue, 'tasks', withEvidence(tasks.evidence.overdue)),
+    fact(id('tasks.reviewOverdue'), 'Submitted tasks past their due date, waiting for the manager to review them', tasks.reviewOverdue, 'tasks', withEvidence(tasks.evidence.reviewOverdue)),
     fact(id('tasks.noDeadline'), 'Workload tasks without a due date', tasks.noDeadline, 'tasks', withEvidence(tasks.evidence.noDeadline)),
     fact(id('tasks.completedWithDeadline'), 'Completed tasks that had a due date', tasks.completedWithDeadline, 'tasks'),
-    fact(id('tasks.onTime'), 'Completed tasks finished on or before the due date', tasks.onTime, 'tasks'),
-    fact(id('tasks.late'), 'Completed tasks finished after the due date', tasks.late, 'tasks', withEvidence(tasks.evidence.late)),
-    fact(id('tasks.onTimeRate'), 'On-time rate (on time / completed with a due date)', tasks.onTimeRate, '%', smallDeadline),
+    fact(id('tasks.onTime'), 'Completed tasks submitted on or before the due date', tasks.onTime, 'tasks'),
+    fact(id('tasks.late'), 'Completed tasks submitted after the due date', tasks.late, 'tasks', withEvidence(tasks.evidence.late)),
+    fact(id('tasks.onTimeRate'), 'On-time rate (submitted on time / completed with a due date)', tasks.onTimeRate, '%', smallDeadline),
     fact(id('sessions.total'), 'Website sign-ins in the period', sessions.total, 'sessions', { note: PRESENCE_NOTE }),
     fact(id('sessions.closed'), 'Sign-ins with a recorded sign-out', sessions.closed, 'sessions'),
     fact(id('sessions.missingLogout'), 'Sign-ins with no recorded sign-out (duration unknown)', sessions.missingLogout, 'sessions', withEvidence(sessions.evidence.missingLogout)),
@@ -93,6 +94,7 @@ export function teamTotals(subjects) {
     completionRate: percent(completed, workload),
     pending: sum((c) => c.tasks.pending),
     overdue: sum((c) => c.tasks.overdue),
+    reviewOverdue: sum((c) => c.tasks.reviewOverdue),
     inReview: sum((c) => c.tasks.inReview),
     noDeadline: sum((c) => c.tasks.noDeadline),
     completedWithDeadline: withDeadline,
@@ -110,7 +112,8 @@ export function teamFacts(totals) {
     fact('team.tasks.completed', 'Team tasks approved as done in the period', totals.completed, 'tasks'),
     fact('team.tasks.completionRate', 'Team completion rate (done / workload)', totals.completionRate, '%'),
     fact('team.tasks.pending', 'Team tasks not done yet', totals.pending, 'tasks'),
-    fact('team.tasks.overdue', 'Team tasks past their due date', totals.overdue, 'tasks'),
+    fact('team.tasks.overdue', 'Team tasks past their due date and not yet submitted', totals.overdue, 'tasks'),
+    fact('team.tasks.reviewOverdue', 'Submitted team tasks past their due date, waiting for your review', totals.reviewOverdue, 'tasks'),
     fact('team.tasks.inReview', 'Team tasks waiting for manager review', totals.inReview, 'tasks'),
     fact('team.tasks.noDeadline', 'Team workload tasks without a due date', totals.noDeadline, 'tasks'),
     fact('team.tasks.onTimeRate', 'Team on-time rate', totals.onTimeRate, '%'),
@@ -164,7 +167,18 @@ function employeeFindings({ prefix = '', name, analysis }, audience, findings) {
         : { action: `Check in with ${name} about the overdue tasks and agree new dates or remove blockers.`, rationale: `${plural(tasks.overdue, 'task')} past the due date.`, factIds: [id('tasks.overdue')] }
     );
   }
-  if (tasks.inReview > 0) {
+  if (tasks.reviewOverdue > 0) {
+    if (audience === 'employee') {
+      observations.push({ statement: `${plural(tasks.reviewOverdue, 'submitted task')} past the due date ${tasks.reviewOverdue === 1 ? 'is' : 'are'} waiting for your manager's review.`, factIds: [id('tasks.reviewOverdue')], kind: 'neutral' });
+    } else {
+      recommendations.push({
+        action: `Review the ${plural(tasks.reviewOverdue, 'task')} ${name} submitted that ${tasks.reviewOverdue === 1 ? 'is' : 'are'} now past the due date.`,
+        rationale: 'The work is handed in; it is waiting on the review, not on the employee.',
+        factIds: [id('tasks.reviewOverdue')]
+      });
+    }
+  }
+  if (tasks.inReview > tasks.reviewOverdue) {
     if (audience === 'employee') {
       observations.push({ statement: `${plural(tasks.inReview, 'task')} ${tasks.inReview === 1 ? 'is' : 'are'} waiting for your manager's review.`, factIds: [id('tasks.inReview')], kind: 'neutral' });
     } else {
@@ -239,7 +253,11 @@ export function ruleInsights({ audience, subjects, totals, question }) {
       findings.observations.push({ statement: `${subject.name} has ${plural(count, 'overdue task')}.`, factIds: [`${subject.prefix}tasks.overdue`], kind: 'concern' });
     }
     if (totals.inReview > 0) {
-      findings.recommendations.push({ action: `Review the ${plural(totals.inReview, 'task')} waiting for approval.`, rationale: 'Submitted work only counts as done once it is approved.', factIds: ['team.tasks.inReview'] });
+      findings.recommendations.push({
+        action: `Review the ${plural(totals.inReview, 'task')} waiting for approval${totals.reviewOverdue ? `, starting with the ${totals.reviewOverdue} already past the due date` : ''}.`,
+        rationale: 'Submitted work only counts as done once it is approved.',
+        factIds: ['team.tasks.inReview', ...(totals.reviewOverdue ? ['team.tasks.reviewOverdue'] : [])]
+      });
     }
     if (withOverdue.length) {
       findings.recommendations.push({

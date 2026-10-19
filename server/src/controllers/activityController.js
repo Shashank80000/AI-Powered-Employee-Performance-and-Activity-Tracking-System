@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { Activity } from '../models/Activity.js';
 import { currentEmployee, employeeForRequest } from '../middleware/roleMiddleware.js';
 import { HttpError } from '../middleware/errorMiddleware.js';
-import { capturedWhileNotTracking } from './trackingController.js';
+import { uploadTimeProblem } from './trackingController.js';
 import { getActivitySummary, recordSnapshots } from '../services/activityService.js';
 import { periodRange } from '../utils/dateUtils.js';
 
@@ -46,16 +46,23 @@ export async function uploadSnapshots(request, response) {
   const { consent } = employee;
   if (!consent?.acceptedAt || !consent.activity) throw new HttpError(403, 'Tracking consent has not been given');
 
-  // Drop anything recorded while tracking was paused or stopped. The grace period keeps the
-  // snapshot that closes the interval in which the pause happened.
+  // Drop anything recorded while tracking was paused or stopped (now or earlier), before consent, in the future or
+  // too long ago. The grace period keeps the snapshot that closes the interval in which a pause happened.
   const graceMs = 90 * 1000;
-  const whileTracking = (item) => !capturedWhileNotTracking(employee, item.capturedAt, graceMs);
+  const discarded = {};
+  const allowed = (item) => {
+    const problem = uploadTimeProblem(employee, item.capturedAt, { consentAt: consent.acceptedAt, graceMs });
+    if (problem) discarded[problem] = (discarded[problem] ?? 0) + 1;
+    return !problem;
+  };
 
   // Drop anything the person did not agree to share, even if an old agent sends it.
-  const snapshots = batch.snapshots.filter(whileTracking).map((snapshot) => (consent.keyboard ? snapshot : { ...snapshot, keyboardEvents: 0 }));
-  const applications = consent.apps ? batch.applications.filter(whileTracking) : [];
-  const stored = snapshots.length ? await recordSnapshots(employee, { snapshots, applications }) : 0;
-  response.status(201).json({ stored });
+  const snapshots = batch.snapshots.filter(allowed).map((snapshot) => (consent.keyboard ? snapshot : { ...snapshot, keyboardEvents: 0 }));
+  const applications = consent.apps ? batch.applications.filter(allowed) : [];
+  const result = snapshots.length ? await recordSnapshots(employee, { snapshots, applications }) : { stored: 0, overlapping: 0 };
+  if (result.overlapping) discarded['It overlaps time already recorded'] = result.overlapping;
+  // `discarded` says why anything wasn't stored, so the agent can tell a pause from an error.
+  response.status(201).json({ stored: result.stored, discarded: Object.entries(discarded).map(([reason, count]) => ({ reason, count })) });
 }
 
 export async function listActivity(request, response) {

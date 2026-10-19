@@ -10,3 +10,12 @@ export const passwordField = z
   .regex(/[A-Za-z]/, 'Include at least one letter in the password')
   .regex(/\d/, 'Include at least one number in the password');
 export const objectId = z.string().regex(/^[a-f\d]{24}$/i, 'Invalid id');
+/** A real calendar day as "YYYY-MM-DD": 2026-02-30 or 2026-13-45 are refused instead of rolling over to another day. */
+export const dateKey = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use a date like 2026-10-19')
+  .refine((value) => {
+    const [year, month, day] = value.split('-').map(Number);
+    const date = new Date(Date.UTC(year, month - 1, day));
+    return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+  }, 'That date does not exist');

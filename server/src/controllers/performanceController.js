@@ -3,6 +3,7 @@ import { Employee } from '../models/Employee.js';
 import { findEmployeeInScope } from '../middleware/roleMiddleware.js';
 import { getDashboard, getEmployeePerformance, recalculateDay } from '../services/performanceService.js';
 import { addDays, lastNDays } from '../utils/dateUtils.js';
+import { sameOrganization } from '../utils/organization.js';
 
 const periodSchema = z.object({ period: z.enum(['day', 'week', 'month']).default('week') });
 
@@ -17,10 +18,10 @@ export async function employeePerformance(request, response) {
   response.json(await getEmployeePerformance(employee, period));
 }
 
-/** Admin maintenance: rebuild daily records for the last N days. */
+/** Admin maintenance: rebuild daily records for the last N days, for the admin's organization. */
 export async function recalculate(request, response) {
   const { days } = z.object({ days: z.number().int().min(1).max(90).default(7) }).parse(request.body ?? {});
-  const employees = await Employee.find().select('_id').lean();
+  const employees = await Employee.find(sameOrganization(request.user)).select('_id').lean();
   const { start } = lastNDays(days);
   for (const { _id } of employees) {
     for (let day = 0; day < days; day += 1) await recalculateDay(_id, addDays(start, day));

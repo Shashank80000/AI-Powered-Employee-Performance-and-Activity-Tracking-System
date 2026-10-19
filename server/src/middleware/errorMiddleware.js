@@ -40,7 +40,9 @@ export function errorHandler(error, _request, response, _next) {
     details = Object.values(error.errors).map(({ path, message: issue }) => ({ field: path, message: issue }));
   } else if (error.code === 11000) {
     status = 409;
-    const field = Object.keys(error.keyValue ?? {})[0];
+    // Compound indexes name several fields (e.g. organization + employeeCode): describe the one people chose.
+    const fields = Object.keys(error.keyValue ?? error.keyPattern ?? {});
+    const field = fields.find((name) => name in DUPLICATE_MESSAGES) ?? fields[0];
     message = DUPLICATE_MESSAGES[field] ?? `Duplicate value for ${field ?? 'unique field'}`;
   } else if (error.type === 'entity.parse.failed') {
     status = 400;

@@ -11,7 +11,7 @@ import { WorkSession } from '../models/WorkSession.js';
 import { DUE_SOON_DAYS, analyseEmployee, durationMs } from '../utils/agentMetrics.js';
 import { employeeFacts, ruleInsights, teamFacts, teamTotals } from '../utils/agentFacts.js';
 import { groundOutput, numbersIn } from '../utils/agentGrounding.js';
-import { addDays, periodRange, previousRange, toDateKey } from '../utils/dateUtils.js';
+import { addDays, dayStart, periodRange, previousRange, toDateKey } from '../utils/dateUtils.js';
 
 /**
  * The AI agent: verify scope -> load records -> validate and calculate (agentMetrics) -> fact sheet (agentFacts)
@@ -48,7 +48,7 @@ async function resolveEmployees(user, { scope, employeeId }) {
 async function loadRecords(ids, since, until) {
   const [tasks, sessions, performance] = await Promise.all([
     Task.find({ assignedTo: { $in: ids }, $or: [{ status: { $ne: 'done' } }, { completedAt: { $gte: since } }, { completedAt: null }] })
-      .select('title status priority dueDate completedAt createdAt assignedTo')
+      .select('title status priority dueDate completedAt submittedAt createdAt assignedTo')
       .lean(),
     // Sessions can't outlast a sign-in token, so a month before the earlier period is enough.
     WorkSession.find({ employee: { $in: ids }, $or: [{ loginAt: { $gte: addDays(since, -31), $lt: until } }, { loginAt: null }] }).lean(),
@@ -265,21 +265,22 @@ export async function runAgent(user, { question, ...input }) {
   const analysis = await buildAnalysis(user, input);
   const audience = user.role === 'employee' ? 'employee' : 'manager';
   const rules = ruleInsights({ audience, subjects: analysis.subjects, totals: analysis.totals, question });
-  const extraNumbers = [PERIOD_DAYS[analysis.period], DUE_SOON_DAYS, ...numbersIn(question)];
+  const extraNumbers = [PERIOD_DAYS[analysis.period], DUE_SOON_DAYS];
+  const questionNumbers = numbersIn(question);
 
   let source = 'rules';
   let model;
   let usage;
   let fallbackReason;
   // The rule-based answer goes through the same evidence check: a regression test for the rules themselves.
-  let result = groundOutput(rules, analysis.facts, { extraNumbers, fallbackAnswer: rules.answer });
+  let result = groundOutput(rules, analysis.facts, { extraNumbers, questionNumbers, fallbackAnswer: rules.answer });
 
   if (!aiConfigured()) {
     fallbackReason = 'No AI model is configured on the server (ANTHROPIC_API_KEY), so fixed rules produced this answer.';
   } else {
     try {
       const reply = await askClaude({ audience, analysis, question });
-      const grounded = groundOutput(reply.output, analysis.facts, { extraNumbers, fallbackAnswer: rules.answer });
+      const grounded = groundOutput(reply.output, analysis.facts, { extraNumbers, questionNumbers, fallbackAnswer: rules.answer });
       model = reply.model;
       usage = reply.usage;
       if (grounded.validation.answerReplaced && grounded.observations.length === 0) {
@@ -302,8 +303,9 @@ export async function runAgent(user, { question, ...input }) {
     scope: analysis.scope,
     employee: analysis.scope === 'employee' ? analysis.subjects[0].employeeId : undefined,
     period: analysis.period,
-    periodStart: new Date(analysis.range.start),
-    periodEnd: new Date(analysis.range.end),
+    // Midnight of those calendar days in APP_TIMEZONE, like every other date in the app.
+    periodStart: dayStart(analysis.range.start),
+    periodEnd: dayStart(analysis.range.end),
     question: question || undefined,
     source,
     model,

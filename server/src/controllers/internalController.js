@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { dateKey } from '../utils/accountRules.js';
 import { env } from '../config/env.js';
 import { CameraObservation, CAMERA_STATES } from '../models/CameraObservation.js';
 import { DailyAnalysis } from '../models/DailyAnalysis.js';
@@ -12,7 +13,7 @@ import { toAnalysisResponse } from './analysisController.js';
 
 // Internal API for analysis-agent, protected by X-Service-Key (see authMiddleware.requireServiceKey).
 
-const dateString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const dateString = dateKey;
 const objectId = z.string().regex(/^[a-f\d]{24}$/i);
 
 const analysisSchema = z.object({

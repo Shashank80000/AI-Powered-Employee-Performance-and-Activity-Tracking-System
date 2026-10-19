@@ -28,14 +28,17 @@ export async function recalculateDay(employeeId, date) {
     Task.find({ assignedTo: employeeId, $or: [{ dueDate: inDay }, { completedAt: inDay }] }).lean()
   ]);
 
-  const completed = tasks.filter((task) => task.completedAt >= start && task.completedAt < end);
+  // A task finished on an earlier day doesn't count against the day it was due.
+  const counted = tasks.filter((task) => !(task.completedAt && task.completedAt < start));
+  const completed = counted.filter((task) => task.completedAt >= start && task.completedAt < end);
   const metrics = {
     activeSeconds: activity?.activeSeconds ?? 0,
     idleSeconds: activity?.idleSeconds ?? 0,
     productiveAppSeconds: Math.min(apps?.seconds ?? 0, activity?.activeSeconds ?? 0),
-    tasksAssigned: tasks.length,
+    tasksAssigned: counted.length,
     tasksCompleted: completed.length,
-    onTimeTasks: completed.filter((task) => !task.dueDate || task.completedAt <= task.dueDate).length
+    // On time = submitted by the due date; the review that follows doesn't make the employee late.
+    onTimeTasks: completed.filter((task) => !task.dueDate || (task.submittedAt ?? task.completedAt) <= task.dueDate).length
   };
   const { score } = calculateProductivity(metrics);
 
@@ -139,7 +142,8 @@ export async function getDashboard(user, period = 'week') {
       name: task.assignedTo?.user?.name ?? 'Unknown',
       action: describeTask(task),
       status: task.status,
-      at: task.updatedAt
+      // When the described step happened (a later comment or edit doesn't make old work look new).
+      at: task.completedAt ?? task.submittedAt ?? (task.status === 'todo' ? task.createdAt : task.updatedAt)
     }))
   };
 }

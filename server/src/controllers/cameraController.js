@@ -1,9 +1,10 @@
 import { z } from 'zod';
+import { dateKey } from '../utils/accountRules.js';
 import { env } from '../config/env.js';
 import { CameraObservation, CAMERA_STATES } from '../models/CameraObservation.js';
 import { currentEmployee, findEmployeeInScope } from '../middleware/roleMiddleware.js';
 import { HttpError } from '../middleware/errorMiddleware.js';
-import { capturedWhileNotTracking } from './trackingController.js';
+import { uploadTimeProblem } from './trackingController.js';
 import { summarizeCameraDay } from '../utils/cameraSummary.js';
 import { addDays, dayStart, startOfDay } from '../utils/dateUtils.js';
 
@@ -25,7 +26,7 @@ export const observationSchema = z.object({
   source: z.enum(['local', 'vision'])
 });
 
-const dateSchema = z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional() });
+const dateSchema = z.object({ date: dateKey.optional() });
 const teamQuerySchema = dateSchema.extend({ employeeId: z.string().regex(/^[a-f\d]{24}$/i, 'Invalid employeeId') });
 
 function toConsentResponse(employee) {
@@ -95,11 +96,20 @@ export async function recordObservation(request, response) {
   }
   if (input.observedAt.getTime() > Date.now() + MAX_CLOCK_SKEW_MS) throw new HttpError(400, 'observedAt must not be in the future');
   if (input.observedAt < employee.cameraConsent.acceptedAt) throw new HttpError(409, 'Observed before camera consent was given');
-  if (capturedWhileNotTracking(employee, input.observedAt, PAUSE_GRACE_MS)) {
-    throw new HttpError(409, 'Tracking was paused at that time, so the observation was not stored');
-  }
+  const problem = uploadTimeProblem(employee, input.observedAt, { graceMs: PAUSE_GRACE_MS });
+  if (problem) throw new HttpError(409, `${problem}, so the observation was not stored`);
 
-  const observation = await CameraObservation.create({ employee: employee._id, ...input });
+  // camera-agent re-sends an observation when an upload times out: the one already stored is returned, not a second.
+  const existing = await CameraObservation.findOne({ employee: employee._id, observedAt: input.observedAt });
+  if (existing) return response.status(200).json({ observation: toObservationResponse(existing), duplicate: true });
+  let observation;
+  try {
+    observation = await CameraObservation.create({ employee: employee._id, ...input });
+  } catch (error) {
+    if (error.code !== 11000) throw error;
+    const stored = await CameraObservation.findOne({ employee: employee._id, observedAt: input.observedAt });
+    return response.status(200).json({ observation: toObservationResponse(stored), duplicate: true });
+  }
   response.status(201).json({ observation: toObservationResponse(observation) });
 }
 

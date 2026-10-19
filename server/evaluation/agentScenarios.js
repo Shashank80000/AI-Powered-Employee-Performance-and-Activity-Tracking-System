@@ -16,7 +16,7 @@ const oid = () => (++counter).toString(16).padStart(24, '0');
 const at = (day, hour = 12) => new Date(`2026-10-${String(day).padStart(2, '0')}T${String(hour).padStart(2, '0')}:00:00Z`);
 
 /** A task assigned to employee "e1". Days are October 2026. */
-function task(title, { status = 'todo', created = 1, due, completed } = {}) {
+function task(title, { status = 'todo', created = 1, due, completed, submitted } = {}) {
   return {
     _id: oid(),
     title,
@@ -24,7 +24,8 @@ function task(title, { status = 'todo', created = 1, due, completed } = {}) {
     assignedTo: 'e1',
     createdAt: created === null ? undefined : at(created, 9),
     ...(due !== undefined && { dueDate: at(due, 18) }),
-    ...(completed !== undefined && { completedAt: completed === null ? undefined : at(completed, 15) })
+    ...(completed !== undefined && { completedAt: completed === null ? undefined : at(completed, 15) }),
+    ...(submitted !== undefined && { submittedAt: at(...[submitted].flat()) })
   };
 }
 
@@ -75,7 +76,7 @@ export const SCENARIOS = [
     id: 'S2',
     keyFacts: ['tasks.overdue', 'tasks.inReview'],
     category: 'Overdue and pending tasks',
-    description: 'Nothing done: two overdue (one waiting for review), one due in two days, one without a due date.',
+    description: 'Nothing done: two past their due date, of which one is submitted and waiting for review; one due in two days; one without a due date.',
     data: {
       tasks: [
         task('Prepare slides', { status: 'todo', due: 10 }),
@@ -86,13 +87,14 @@ export const SCENARIOS = [
     },
     checks: [
       ['Pending', metric('current.tasks.pending'), 4],
-      ['Overdue', metric('current.tasks.overdue'), 2],
+      ['Overdue (not yet submitted)', metric('current.tasks.overdue'), 1],
+      ['Past due but waiting for the manager', metric('current.tasks.reviewOverdue'), 1],
       ['Waiting for review', metric('current.tasks.inReview'), 1],
       ['Due in the next 3 days', metric('current.tasks.dueSoon'), 1],
       ['Completion rate %', metric('current.tasks.completionRate'), 0],
-      ['Overdue evidence names the tasks', (ctx) => ctx.analysis.current.tasks.evidence.overdue.map((t) => t.title).sort().join(', '), 'Prepare slides, Review contract'],
-      ['Rules flag the overdue tasks as a concern', (ctx) => ctx.rules.observations.some((o) => o.kind === 'concern' && o.factIds.includes('tasks.overdue')), true],
-      ['Rules recommend reviewing the submitted task', cites('recommendations', 'tasks.inReview'), true]
+      ['Overdue evidence names only the unsubmitted task', (ctx) => ctx.analysis.current.tasks.evidence.overdue.map((t) => t.title).join(', '), 'Prepare slides'],
+      ['Rules flag the overdue task as a concern', (ctx) => ctx.rules.observations.some((o) => o.kind === 'concern' && o.factIds.includes('tasks.overdue')), true],
+      ['Rules ask the manager to review the late submission', cites('recommendations', 'tasks.reviewOverdue'), true]
     ]
   },
   {
@@ -258,6 +260,37 @@ export const SCENARIOS = [
       ['Active hours', metric('current.activity.activeHours'), 5],
       ['Idle hours', metric('current.activity.idleHours'), 1],
       ['Active-hours fact carries the presence note', (ctx) => ctx.facts.find((f) => f.id === 'activity.activeHours').note, 'Recorded presence, not a measure of productive work.']
+    ]
+  },
+  {
+    id: 'S12',
+    category: 'On time is judged at submission',
+    description: 'Submitted before the due date but approved two days after it, and one submitted late. Approving late must not make the employee late.',
+    keyFacts: ['tasks.onTimeRate'],
+    data: {
+      tasks: [
+        task('Submitted on time', { status: 'done', due: 11, submitted: [11, 10], completed: 13 }),
+        task('Submitted late', { status: 'done', due: 11, submitted: [12, 10], completed: 12 })
+      ]
+    },
+    checks: [
+      ['Completed', metric('current.tasks.completed'), 2],
+      ['On time (by submission)', metric('current.tasks.onTime'), 1],
+      ['Late (by submission)', metric('current.tasks.late'), 1],
+      ['On-time rate %', metric('current.tasks.onTimeRate'), 50]
+    ]
+  },
+  {
+    id: 'S13',
+    category: 'Missing logout timestamps',
+    description: 'A sign-in from the previous week that was never signed out belongs to that week only, not to this one as well.',
+    keyFacts: [],
+    data: { sessions: [session(5, 9)] },
+    checks: [
+      ['Not counted this week', metric('current.sessions.total'), 0],
+      ['No missing sign-out this week', metric('current.sessions.missingLogout'), 0],
+      ['Counted in the week it started', metric('previous.sessions.total'), 1],
+      ['Reported missing there', metric('previous.sessions.missingLogout'), 1]
     ]
   }
 ];

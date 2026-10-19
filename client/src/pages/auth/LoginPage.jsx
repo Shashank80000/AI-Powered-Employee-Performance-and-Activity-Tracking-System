@@ -87,7 +87,7 @@ export default function LoginPage() {
           {busy ? 'Signing in…' : 'Sign in'}
         </button>
         <p className="auth-help">
-          Forgot your password? Ask your administrator to reset it. New to WorkPlus? Read the <Link to="/help">user guide</Link>.
+          Setting up WorkPlus for your organization? <Link to="/register">Create an admin account</Link>. Forgot your password? Ask your administrator to reset it. New to WorkPlus? Read the <Link to="/help">user guide</Link>.
         </p>
 
         {demoRoles.length > 0 && (

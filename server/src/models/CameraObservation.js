@@ -19,7 +19,8 @@ const cameraObservationSchema = new mongoose.Schema(
   { timestamps: { createdAt: true, updatedAt: false } }
 );
 
-cameraObservationSchema.index({ employee: 1, observedAt: -1 });
+// Unique: an observation re-sent by camera-agent is stored once.
+cameraObservationSchema.index({ employee: 1, observedAt: -1 }, { unique: true });
 // Labels only (no files), so a TTL index is enough to enforce retention.
 cameraObservationSchema.index({ observedAt: 1 }, { expireAfterSeconds: env.CAMERA_RETENTION_DAYS * 24 * 3600 });
 

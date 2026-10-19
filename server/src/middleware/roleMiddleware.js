@@ -1,4 +1,5 @@
 import { Employee } from '../models/Employee.js';
+import { sameOrganization } from '../utils/organization.js';
 import { HttpError } from './errorMiddleware.js';
 
 /** Allows the request only when the authenticated user has one of `roles`. */
@@ -11,10 +12,10 @@ export function authorize(...roles) {
 
 /**
  * Mongo filter for the Employee documents a user may see:
- * admins see everyone, managers their assigned team, employees only themselves.
+ * admins see everyone in their organization, managers their assigned team, employees only themselves.
  */
 export function employeeScope(user) {
-  if (user.role === 'admin') return {};
+  if (user.role === 'admin') return sameOrganization(user);
   if (user.role === 'manager') return { manager: user._id };
   return { user: user._id };
 }
@@ -27,7 +28,7 @@ export async function visibleEmployeeIds(user) {
 
 /** Loads one employee and throws 404 when it's outside the user's scope. */
 export async function findEmployeeInScope(user, employeeId) {
-  const employee = await Employee.findOne({ _id: employeeId, ...employeeScope(user) }).populate('user', 'name email role');
+  const employee = await Employee.findOne({ _id: employeeId, ...employeeScope(user) }).populate('user', 'name email role mustChangePassword');
   if (!employee) throw new HttpError(404, 'Employee not found');
   return employee;
 }

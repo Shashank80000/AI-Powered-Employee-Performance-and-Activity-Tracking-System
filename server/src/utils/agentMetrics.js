@@ -9,8 +9,10 @@ import { toDateKey } from './dateUtils.js';
  * - completed:       tasks approved as done (completedAt) inside the period
  * - completion rate: completed / workload
  * - pending:         workload tasks not done as of the "as of" time
- * - overdue:         pending tasks whose due date has passed
- * - on-time rate:    completed tasks with a due date, finished at or before it / completed tasks with a due date
+ * - overdue:         pending tasks whose due date has passed and that the employee hasn't submitted yet
+ * - review overdue:  submitted tasks past their due date that are waiting for the manager's review
+ * - on-time rate:    completed tasks with a due date, submitted at or before it / completed tasks with a due date
+ *                    (submission time; the approval time for tasks from before submissions were recorded)
  * Signed-in time and desktop activity are recorded presence and input, never a measure of productive work.
  */
 
@@ -98,6 +100,7 @@ export function prepareTasks(tasks) {
     const created = toMs(task.createdAt);
     let completed = toMs(task.completedAt);
     const due = toMs(task.dueDate);
+    const submitted = toMs(task.submittedAt);
     let timingKnown = true;
 
     if (!has(created)) issues.add('MISSING_CREATED_AT', ref);
@@ -115,7 +118,9 @@ export function prepareTasks(tasks) {
     }
     if (has(due) && has(created) && due < created - DAY_MS) issues.add('DUE_BEFORE_CREATED', ref);
 
-    return { task, ref, created, completed, due, done: task.status === 'done', timingKnown };
+    // When the employee handed the work in; on time is judged by this, not by when the manager approved it.
+    const delivered = submitted ?? completed;
+    return { task, ref, created, completed, submitted, delivered, due, done: task.status === 'done', timingKnown };
   });
 
   const groups = new Map();
@@ -147,12 +152,15 @@ export function analyseTasks(prepared, { start, end, now = new Date() }) {
   const workload = measurable.filter((item) => existed(item, endMs) && !doneBefore(item, startMs));
   const completed = workload.filter((item) => item.done && item.completed >= startMs && item.completed < endMs);
   const pending = workload.filter((item) => existed(item, asOf) && !(item.done && item.completed <= asOf));
-  const overdue = pending.filter((item) => has(item.due) && item.due < asOf);
+  // Submitted and waiting for the manager: the employee's part is done, so it isn't their overdue work.
+  const awaitingReview = (item) => (has(item.submitted) && item.submitted <= asOf) || (isCurrent && item.task.status === 'review');
+  const overdue = pending.filter((item) => has(item.due) && item.due < asOf && !awaitingReview(item));
+  const reviewOverdue = pending.filter((item) => has(item.due) && item.due < asOf && awaitingReview(item));
   const dueSoon = pending.filter((item) => has(item.due) && item.due >= asOf && item.due < asOf + DUE_SOON_DAYS * DAY_MS);
   const noDeadline = workload.filter((item) => !has(item.due));
   const withDeadline = completed.filter((item) => has(item.due));
-  const onTime = withDeadline.filter((item) => item.completed <= item.due);
-  const late = withDeadline.filter((item) => item.completed > item.due);
+  const onTime = withDeadline.filter((item) => item.delivered <= item.due);
+  const late = withDeadline.filter((item) => item.delivered > item.due);
   // Current status only describes the period that is still running.
   const inReview = isCurrent ? pending.filter((item) => item.task.status === 'review') : [];
 
@@ -163,6 +171,7 @@ export function analyseTasks(prepared, { start, end, now = new Date() }) {
     pending: pending.length,
     inReview: inReview.length,
     overdue: overdue.length,
+    reviewOverdue: reviewOverdue.length,
     dueSoon: isCurrent ? dueSoon.length : null,
     noDeadline: noDeadline.length,
     completedWithDeadline: withDeadline.length,
@@ -174,6 +183,7 @@ export function analyseTasks(prepared, { start, end, now = new Date() }) {
       completed: refs(completed),
       pending: refs(pending),
       overdue: refs(overdue),
+      reviewOverdue: refs(reviewOverdue),
       dueSoon: isCurrent ? refs(dueSoon) : [],
       inReview: refs(inReview),
       late: refs(late),
@@ -222,6 +232,8 @@ export function analyseSessions(sessions, { start, end, now = new Date(), webLif
       continue;
     }
     if (login >= endMs || (has(logout) && logout <= startMs)) continue;
+    // Without a sign-out the session's end is unknown: it belongs only to the period it started in.
+    if (!has(logout) && login < startMs) continue;
 
     // A duplicate is the same record stored twice: identical sign-in and sign-out. Two real sign-ins can share a second.
     const key = [session.client ?? 'web', String(session.user ?? session.employee ?? ''), login, logout ?? ''].join('|');

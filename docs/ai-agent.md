@@ -45,11 +45,12 @@ For a period `[start, end)` measured "as of" the earlier of now and the period e
 | Completed | Tasks approved as done (`completedAt`) inside the period |
 | Completion rate | Completed ÷ workload |
 | Pending | Workload tasks not done as of the "as of" time |
-| Overdue | Pending tasks whose due date has passed |
+| Overdue | Pending tasks whose due date has passed and that the employee hasn't submitted yet |
+| Review overdue | Submitted tasks past their due date, waiting for the manager's review (the manager's to act on, not the employee's) |
 | Due soon | Pending tasks due in the next 3 days (current period only) |
-| On-time rate | Completed tasks with a due date finished at or before it ÷ completed tasks with a due date |
+| On-time rate | Completed tasks with a due date **submitted** at or before it ÷ completed tasks with a due date. Judged by `Task.submittedAt`, so a slow review never makes the employee late (approval time for tasks from before submissions were recorded) |
 | Website sessions | Sign-ins with `client: web`; recorded time is the union of sessions with a sign-out (overlapping browsers aren't double-counted) |
-| Missing sign-out | A sign-in with no sign-out whose token has expired (`JWT_EXPIRES_IN`), so it can't still be in use; no duration is counted |
+| Missing sign-out | A sign-in with no sign-out whose token has expired (`JWT_EXPIRES_IN`), so it can't still be in use; no duration is counted, and it belongs only to the period it started in |
 | Desktop activity | Active/idle hours from the daily `Performance` records (desktop agent input) |
 | Trend | Current vs the previous period of the same length. Rates are only compared when both periods have at least 3 tasks behind them |
 
@@ -79,7 +80,9 @@ For a period `[start, end)` measured "as of" the earlier of now and the period e
 
 A rejected main answer is replaced by the rule-based one. Removed statements are shown under "Removed by the evidence check" and stored in `AgentRun.validation`.
 
-Known limits: numbers written as words ("two") aren't checked, and a number inside a task title counts as evidence for statements citing that task.
+Record ids and exact sign-in times are never evidence for a number (their digits would otherwise let "99 tasks are overdue" pass), digits in a task title or employee code count only when the statement quotes that title or code, and numbers from the question are allowed only in the main answer.
+
+Known limit: numbers written as words ("two") aren't checked.
 
 ## Security
 

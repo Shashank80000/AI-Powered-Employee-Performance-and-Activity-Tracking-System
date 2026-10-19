@@ -9,6 +9,7 @@ import { connectDatabase, disconnectDatabase } from '../config/db.js';
 import { env } from '../config/env.js';
 import { User } from '../models/User.js';
 import { emailField, passwordField } from '../utils/accountRules.js';
+import { closeSessions } from '../utils/sessions.js';
 import { ask, readStdin, safeUri } from './prompt.js';
 
 class ResetRefused extends Error {}
@@ -48,6 +49,7 @@ async function resetAdminPassword() {
     { $set: { passwordHash: await bcrypt.hash(password, 12), mustChangePassword: false }, $inc: { tokenVersion: 1 } }
   );
   if (result.modifiedCount !== 1) throw new ResetRefused('The account changed while resetting. Nothing was changed; try again.');
+  await closeSessions(user._id);
 
   console.log(`Password changed for administrator ${email.data}. Every existing sign-in for this account has ended.`);
   if (!user.isActive) console.warn('Note: this account is deactivated, so it still cannot sign in.');

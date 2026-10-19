@@ -13,22 +13,30 @@ export function numbersIn(text) {
 
 const key = (n) => String(Math.round(n * 10) / 10);
 
-/** Every number inside a fact (its value, label, note and evidence), plus the rounded forms people write. */
-function collect(value, into) {
+// Identifiers and exact timestamps are not evidence for a number: digits inside a record id ("...99a3") or an
+// ISO time would otherwise let "99 tasks are overdue" pass.
+const IGNORED_KEYS = new Set(['id', 'signIn', 'signOut']);
+// Names people write: their digits ("Report export #7", "EMP-004") only count when the statement quotes them.
+const QUOTED_KEYS = new Set(['title', 'code']);
+
+/** Every number inside a fact (value, label, note, dates, quoted names), plus the rounded forms people write. */
+function collect(value, into, text, field) {
+  if (IGNORED_KEYS.has(field)) return into;
   if (typeof value === 'number' && Number.isFinite(value)) {
     for (const n of [value, Math.abs(value), Math.round(value), Math.round(Math.abs(value))]) into.add(key(n));
   } else if (typeof value === 'string') {
-    for (const n of numbersIn(value)) collect(n, into);
+    if (QUOTED_KEYS.has(field) && !text.toLowerCase().includes(value.toLowerCase())) return into;
+    for (const n of numbersIn(value)) collect(n, into, text);
   } else if (Array.isArray(value)) {
-    for (const item of value) collect(item, into);
+    for (const item of value) collect(item, into, text);
   } else if (value && typeof value === 'object') {
-    for (const item of Object.values(value)) collect(item, into);
+    for (const [name, item] of Object.entries(value)) collect(item, into, text, name);
   }
   return into;
 }
 
 function unsupportedNumbers(text, facts, extra) {
-  const allowed = collect(facts, new Set(extra.map(key)));
+  const allowed = collect(facts, new Set(extra.map(key)), String(text ?? ''));
   return numbersIn(text).filter((n) => !allowed.has(key(n)));
 }
 
@@ -47,9 +55,10 @@ export function checkClaim(text, factIds, factById, extraNumbers = []) {
 
 /**
  * Filters the model's output down to supported statements.
- * `fallbackAnswer` replaces the main answer when it fails the check.
+ * `extraNumbers` (e.g. the period length) are allowed everywhere; `questionNumbers` only in the main answer, which
+ * may repeat the question ("the top 3"). `fallbackAnswer` replaces the main answer when it fails the check.
  */
-export function groundOutput(output, facts, { extraNumbers = [], fallbackAnswer }) {
+export function groundOutput(output, facts, { extraNumbers = [], questionNumbers = [], fallbackAnswer }) {
   const factById = new Map(facts.map((item) => [item.id, item]));
   const rejected = [];
   let checked = 0;
@@ -67,7 +76,7 @@ export function groundOutput(output, facts, { extraNumbers = [], fallbackAnswer 
 
   checked += 1;
   let answer = output.answer;
-  const answerReason = checkClaim(answer?.text, answer?.factIds, factById, extraNumbers);
+  const answerReason = checkClaim(answer?.text, answer?.factIds, factById, [...extraNumbers, ...questionNumbers]);
   if (answerReason) {
     rejected.push({ type: 'answer', text: answer?.text ?? '', reason: answerReason });
     answer = fallbackAnswer;

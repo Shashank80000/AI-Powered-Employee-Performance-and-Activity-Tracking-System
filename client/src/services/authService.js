@@ -42,9 +42,9 @@ export function isDemoSession() {
 /** { needed }: true until the first administrator has been created. */
 export const getSetupStatus = () => request('/auth/setup');
 
-/** Creates the first administrator (only possible while none exists) and signs them in. */
+/** Registers a new organization with its administrator ({ organizationName, name, email, password }) and signs them in. */
 export async function setupAdmin(admin) {
-  const { token, user } = await request('/auth/setup', { method: 'POST', body: admin });
+  const { token, user } = await request('/auth/register', { method: 'POST', body: admin });
   tokenStore.set(token);
   setDemoFlag(false);
   return user;

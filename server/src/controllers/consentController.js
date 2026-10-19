@@ -4,6 +4,7 @@ import { currentEmployee } from '../middleware/roleMiddleware.js';
 import { HttpError } from '../middleware/errorMiddleware.js';
 import { deleteAllForEmployee } from '../services/screenshotService.js';
 import { deleteAllCameraObservations } from './cameraController.js';
+import { changeTracking } from './trackingController.js';
 
 // Version 2: the person's manager (and admins) can view their screenshots, and every view is logged.
 // Consent given under version 1 ("managers never see screenshots") doesn't cover that.
@@ -80,6 +81,8 @@ export async function withdrawConsent(request, response) {
   };
   employee.trackingConsent = false;
   employee.cameraConsent = { given: false, withdrawnAt: new Date() };
+  // Without consent nothing may be recorded, so tracking stops too (the agent shows it as stopped).
+  changeTracking(employee, 'stopped', 'system', { force: true });
   await employee.save();
   await Promise.all([deleteAllForEmployee(employee._id), deleteAllCameraObservations(employee._id)]);
   response.status(204).end();

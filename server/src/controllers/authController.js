@@ -3,30 +3,44 @@ import mongoose from 'mongoose';
 import { z } from 'zod';
 import { env } from '../config/env.js';
 import { Employee } from '../models/Employee.js';
+import { Organization } from '../models/Organization.js';
 import { User } from '../models/User.js';
 import { WorkSession } from '../models/WorkSession.js';
 import { isAgentRequest, signToken } from '../middleware/authMiddleware.js';
 import { HttpError } from '../middleware/errorMiddleware.js';
 import { emailField, nameField, passwordField } from '../utils/accountRules.js';
+import { createLimiter } from '../utils/rateLimit.js';
+import { closeSessions } from '../utils/sessions.js';
 
 const loginSchema = z.object({
   email: emailField,
   password: z.string().min(1)
 });
 
+// Compared when the email is unknown, so a wrong password takes as long for an unknown account as for a real one.
+const NO_ACCOUNT_HASH = bcrypt.hashSync('no-account-placeholder', 12);
+// Failed sign-ins per account and network address: 10 in 15 minutes, then wait.
+const failedLogins = createLimiter({ limit: 10, windowMs: 15 * 60 * 1000 });
+
 export async function login(request, response) {
   const { email, password } = loginSchema.parse(request.body);
+  const attemptKey = `${email}|${request.ip}`;
+  if (failedLogins.exceeded(attemptKey)) throw new HttpError(429, 'Too many failed sign-ins. Wait 15 minutes and try again.');
   const user = await User.findOne({ email }).select('+passwordHash');
 
-  // Same message for unknown email and wrong password, so accounts can't be enumerated.
-  if (!user || !user.isActive || !(await bcrypt.compare(password, user.passwordHash))) {
+  // Same message, and the same work, for an unknown email and a wrong password, so accounts can't be discovered.
+  const matches = await bcrypt.compare(password, user?.passwordHash ?? NO_ACCOUNT_HASH);
+  if (!user || !user.isActive || !matches) {
+    failedLogins.hit(attemptKey);
     throw new HttpError(401, 'Invalid email or password');
   }
+  failedLogins.reset(attemptKey);
 
   user.lastLoginAt = new Date();
   await user.save();
 
-  const agent = isAgentRequest(request);
+  // Only employees run the desktop agent, so only they get its longer sign-in.
+  const agent = isAgentRequest(request) && user.role === 'employee';
   const session = await startSession(user, agent ? 'agent' : 'web', user.lastLoginAt);
   response.json({ token: signToken(user, { agent, sessionId: session._id }), user: user.toPublic() });
 }
@@ -45,34 +59,31 @@ export async function logout(request, response) {
   response.status(204).end();
 }
 
-// First-run setup: on a database without any administrator, the first visitor creates the administrator account.
-// A marker document with a fixed _id makes the claim atomic, so two simultaneous requests can't both succeed.
-const SETUP_MARKER = 'initial-admin';
-const setupSchema = z.object({ name: nameField, email: emailField, password: passwordField });
-const settings = () => mongoose.connection.collection('settings');
+// Registration: anyone can create an administrator account, which gets its own organization (a separate workspace).
+// Administrators only see their own organization, so a new account never sees anyone else's data.
+const registerSchema = z.object({
+  organizationName: z.string().trim().min(2, 'Enter an organization name of at least 2 characters').max(80, 'Keep the organization name under 80 characters'),
+  name: nameField,
+  email: emailField,
+  password: passwordField
+});
 
-/** Public: whether this installation still needs its first administrator. */
+// Accounts created per network address per hour, against automated sign-ups. Only successful ones count.
+const registrations = createLimiter({ limit: 10, windowMs: 60 * 60 * 1000 });
+
+/** Public: whether this installation has no administrator at all yet (the sign-in page then suggests registering). */
 export async function setupStatus(_request, response) {
   response.json({ needed: !(await User.exists({ role: 'admin' })) });
 }
 
-/** Public, once: creates the first administrator and signs them in. Refused as soon as any administrator exists. */
-export async function setupAdmin(request, response) {
-  const input = setupSchema.parse(request.body);
-  if (await User.exists({ role: 'admin' })) throw new HttpError(409, 'Setup is already complete. Sign in instead.');
+/** Public: creates an organization and its administrator, and signs them in. */
+export async function register(request, response) {
+  const input = registerSchema.parse(request.body);
+  if (registrations.exceeded(request.ip)) throw new HttpError(429, 'Too many accounts were created from this network. Try again in an hour.');
+  // Checked first so a taken email doesn't leave an empty organization behind; the unique index still decides races.
+  if (await User.exists({ email: input.email })) throw new HttpError(409, 'An account with this email already exists. Sign in instead.');
 
-  // No admin exists, so a marker older than any in-flight request is stale (e.g. the admin was deleted from the database).
-  await settings().deleteOne({ _id: SETUP_MARKER, createdAt: { $lt: new Date(Date.now() - 60_000) } });
-  try {
-    await settings().insertOne({ _id: SETUP_MARKER, createdAt: new Date() });
-  } catch (error) {
-    if (error.code === 11000) throw new HttpError(409, 'Setup is already complete. Sign in instead.');
-    throw error;
-  }
-
-  // An administrator created just before the claim (by a request whose marker has since gone stale) still wins.
-  if (await User.exists({ role: 'admin' })) throw new HttpError(409, 'Setup is already complete. Sign in instead.');
-
+  const organization = await Organization.create({ name: input.organizationName });
   let admin;
   try {
     admin = await User.create({
@@ -80,13 +91,15 @@ export async function setupAdmin(request, response) {
       email: input.email,
       passwordHash: await bcrypt.hash(input.password, 12),
       role: 'admin',
+      organization: organization._id,
       lastLoginAt: new Date()
     });
   } catch (error) {
-    // Free the marker so setup can be retried, e.g. after "this email already exists".
-    await settings().deleteOne({ _id: SETUP_MARKER });
+    await organization.deleteOne();
     throw error;
   }
+  registrations.hit(request.ip);
+  await Organization.updateOne({ _id: organization._id }, { createdBy: admin._id });
   const session = await startSession(admin, 'web', admin.lastLoginAt);
   response.status(201).json({ token: signToken(admin, { sessionId: session._id }), user: admin.toPublic() });
 }
@@ -114,6 +127,7 @@ export async function changePassword(request, response) {
   user.mustChangePassword = false;
   user.endSessions();
   await user.save();
+  await closeSessions(user._id, { except: request.sessionId });
   // The same sign-in continues with the new token.
   response.json({ token: signToken(user, { agent: isAgentRequest(request), sessionId: request.sessionId }), user: user.toPublic() });
 }

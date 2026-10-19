@@ -40,7 +40,7 @@ export default function ReportCard({ report }) {
       <footer className="report-footer">
         <Sparkles size={13} aria-hidden="true" />
         <span>
-          {report.source === 'ai-service' ? 'AI-generated' : 'Basic summary'} · {report.disclaimer}
+          {report.source === 'ai-service' ? 'Automatic report from the analysis service' : 'Basic summary'} · {report.disclaimer}
         </span>
       </footer>
     </article>
