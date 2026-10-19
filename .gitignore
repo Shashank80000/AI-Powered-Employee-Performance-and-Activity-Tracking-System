@@ -27,5 +27,6 @@ venv/
 # Screenshot images (deleted after analysis)
 server/storage/
 
-# The combined Windows installer is over GitHub's 100 MB file limit; it is on the GitHub Release instead
-downloads/*-win.exe
+# Desktop agent installers are published on the GitHub Release, not stored in git
+downloads/*
+!downloads/README.md

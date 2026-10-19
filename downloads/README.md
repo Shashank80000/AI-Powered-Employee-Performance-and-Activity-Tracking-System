@@ -1,8 +1,8 @@
 # WorkPlus Agent installers
 
-The desktop agent installers from the latest GitHub Release (v0.1.4). Copy any of them to another computer and install it there.
-The Mac, Windows x64 and Debian installers are stored in git. `WorkPlus.Agent-0.1.4-win.exe` is not, because it is over
-GitHub's 100 MB file limit (`.gitignore` skips it): get it from the release page linked below.
+A local folder for desktop agent installers downloaded from the latest GitHub Release (v0.1.4). Copy any of them to another
+computer and install it there. The installers are not stored in git (`.gitignore` skips everything here except this file):
+download them from the release page linked below.
 
 | Computer | File |
 | --- | --- |
