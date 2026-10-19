@@ -56,6 +56,7 @@ export default function EmployeeTable({ employees, showManager = false, onEdit, 
                   <span className={`status ${status.className}`}>
                     <i aria-hidden="true" />
                     {status.label}
+                    {!inactive && employee.temporaryPassword && ' · temporary password'}
                   </span>
                 </td>
                 {hasActions && (

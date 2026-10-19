@@ -1,4 +1,3 @@
-import { calculateProductivity } from '../utils/productivityCalculator.js';
 
 // Application names are matched case-insensitively. Anything unknown is "neutral".
 const CATEGORY_RULES = {
@@ -18,11 +17,6 @@ export function categorizeApplication(application) {
 export function sumMetrics(records) {
   const keys = ['activeSeconds', 'idleSeconds', 'productiveAppSeconds', 'tasksAssigned', 'tasksCompleted', 'onTimeTasks'];
   return Object.fromEntries(keys.map((key) => [key, records.reduce((total, record) => total + (record[key] ?? 0), 0)]));
-}
-
-/** Score for a set of daily records taken together. */
-export function scoreRecords(records) {
-  return calculateProductivity(sumMetrics(records));
 }
 
 export function averageScore(records) {

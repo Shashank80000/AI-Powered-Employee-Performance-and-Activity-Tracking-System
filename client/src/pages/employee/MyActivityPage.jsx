@@ -4,15 +4,19 @@ import PanelHeader from '../../components/common/PanelHeader.jsx';
 import PeriodSelect from '../../components/common/PeriodSelect.jsx';
 import StatusMessage from '../../components/common/StatusMessage.jsx';
 import MetricCard from '../../components/dashboard/MetricCard.jsx';
+import ReportCard from '../../components/reports/ReportCard.jsx';
 import { Clock3, Coffee, Keyboard, MousePointer2 } from 'lucide-react';
 import { useApi } from '../../hooks/useApi.js';
 import { getActivitySummary } from '../../services/activityService.js';
+import { listReports } from '../../services/reportService.js';
 import { formatHours } from '../../utils/formatters.js';
 
 export default function MyActivityPage() {
   const [period, setPeriod] = useState('week');
   const { data, error, loading, reload } = useApi((signal) => getActivitySummary({ period }, { signal }), [period]);
   const topSeconds = data?.applications[0]?.durationSeconds ?? 0;
+  // AI reports your manager or an administrator generated about you (the server returns only your own).
+  const reports = useApi((signal) => listReports(undefined, { signal }));
 
   return (
     <>
@@ -46,6 +50,22 @@ export default function MyActivityPage() {
           </article>
         </>
       )}
+
+      <article className="panel section-gap">
+        <PanelHeader title="Reports about you" subtitle="AI reports your manager or an administrator generated, from the same aggregated numbers" />
+        <StatusMessage
+          loading={reports.loading}
+          error={reports.error}
+          empty={reports.data?.length === 0}
+          emptyText="No reports about you yet."
+          onRetry={reports.reload}
+        />
+        <div className="report-grid">
+          {reports.data?.map((report) => (
+            <ReportCard key={report.id} report={report} />
+          ))}
+        </div>
+      </article>
     </>
   );
 }

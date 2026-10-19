@@ -2,19 +2,21 @@ import bcrypt from 'bcryptjs';
 import mongoose from 'mongoose';
 import { z } from 'zod';
 import { env } from '../config/env.js';
+import { Employee } from '../models/Employee.js';
 import { User } from '../models/User.js';
-import { signToken } from '../middleware/authMiddleware.js';
+import { WorkSession } from '../models/WorkSession.js';
+import { isAgentRequest, signToken } from '../middleware/authMiddleware.js';
 import { HttpError } from '../middleware/errorMiddleware.js';
 import { emailField, nameField, passwordField } from '../utils/accountRules.js';
 
 const loginSchema = z.object({
-  email: z.string().email(),
+  email: emailField,
   password: z.string().min(1)
 });
 
 export async function login(request, response) {
   const { email, password } = loginSchema.parse(request.body);
-  const user = await User.findOne({ email: email.toLowerCase() }).select('+passwordHash');
+  const user = await User.findOne({ email }).select('+passwordHash');
 
   // Same message for unknown email and wrong password, so accounts can't be enumerated.
   if (!user || !user.isActive || !(await bcrypt.compare(password, user.passwordHash))) {
@@ -24,7 +26,23 @@ export async function login(request, response) {
   user.lastLoginAt = new Date();
   await user.save();
 
-  response.json({ token: signToken(user), user: user.toPublic() });
+  const agent = isAgentRequest(request);
+  const session = await startSession(user, agent ? 'agent' : 'web', user.lastLoginAt);
+  response.json({ token: signToken(user, { agent, sessionId: session._id }), user: user.toPublic() });
+}
+
+/** Records a sign-in, so sign-in/sign-out history can be analysed. */
+async function startSession(user, client, loginAt = new Date()) {
+  const employee = user.role === 'employee' ? await Employee.findOne({ user: user._id }).select('_id').lean() : null;
+  return WorkSession.create({ user: user._id, employee: employee?._id, client, loginAt });
+}
+
+/** Records the sign-out time of this token's session. Signing out always succeeds, recorded or not. */
+export async function logout(request, response) {
+  if (request.sessionId && mongoose.isValidObjectId(request.sessionId)) {
+    await WorkSession.updateOne({ _id: request.sessionId, user: request.user._id, logoutAt: null }, { logoutAt: new Date() });
+  }
+  response.status(204).end();
 }
 
 // First-run setup: on a database without any administrator, the first visitor creates the administrator account.
@@ -78,7 +96,10 @@ const changePasswordSchema = z.object({
   newPassword: passwordField
 });
 
-/** The signed-in person changes their own password; required after an admin set a temporary one. */
+/**
+ * The signed-in person changes their own password; required after an admin set a temporary one.
+ * Every other session (another browser, the desktop agent) ends; this one continues with the returned token.
+ */
 export async function changePassword(request, response) {
   const { currentPassword, newPassword } = changePasswordSchema.parse(request.body);
   const user = await User.findById(request.user._id).select('+passwordHash');
@@ -87,8 +108,10 @@ export async function changePassword(request, response) {
 
   user.passwordHash = await bcrypt.hash(newPassword, 12);
   user.mustChangePassword = false;
+  user.endSessions();
   await user.save();
-  response.json({ user: user.toPublic() });
+  // The same sign-in continues with the new token.
+  response.json({ token: signToken(user, { agent: isAgentRequest(request), sessionId: request.sessionId }), user: user.toPublic() });
 }
 
 // Seeded demo accounts (see scripts/seed.js), one per role.
@@ -112,5 +135,6 @@ export async function demoLogin(request, response) {
   const { role } = z.object({ role: z.enum(['admin', 'manager', 'employee']) }).parse(request.body);
   const user = await User.findOne({ email: DEMO_ACCOUNTS[role].email, isActive: true });
   if (!user) throw new HttpError(404, 'Demo accounts are missing. Run `npm run seed` to create them.');
-  response.json({ token: signToken(user), user: user.toPublic(), demo: true });
+  const session = await startSession(user, 'web');
+  response.json({ token: signToken(user, { sessionId: session._id }), user: user.toPublic(), demo: true });
 }

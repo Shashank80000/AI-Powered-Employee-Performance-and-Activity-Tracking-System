@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import LoginPage from './pages/LoginPage.jsx';
+import ChangePasswordPage from './pages/ChangePasswordPage.jsx';
 import StatusPage from './pages/StatusPage.jsx';
 import OnboardingPage from './pages/OnboardingPage.jsx';
 import SettingsPage from './pages/SettingsPage.jsx';
 
 /**
- * Root: LoginPage until an employee is signed in; then OnboardingPage until they accepted
- * consent; then StatusPage (with SettingsPage reachable from it).
+ * Root: LoginPage until an employee is signed in; ChangePasswordPage if they used the
+ * administrator's temporary password; then OnboardingPage until they accepted consent;
+ * then StatusPage (with SettingsPage reachable from it).
  */
 export default function App() {
   const agent = window.agent;
@@ -54,7 +56,9 @@ export default function App() {
         <span className="brand-dot" aria-hidden="true" />
         <span>WorkPlus Agent</span>
       </header>
-      {!status.user ? (
+      {status.passwordChange ? (
+        <ChangePasswordPage status={status} onStatus={setStatus} />
+      ) : !status.user ? (
         <LoginPage status={status} onStatus={setStatus} />
       ) : !status.consent?.acceptedAt ? (
         <OnboardingPage key={status.user.id} status={status} onStatus={setStatus} />

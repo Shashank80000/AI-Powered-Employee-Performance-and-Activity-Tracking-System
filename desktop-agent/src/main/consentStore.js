@@ -9,8 +9,8 @@
  *
  *   - activity     REQUIRED. Active/idle time and mouse-movement count. If the person does
  *                  not accept this, tracking cannot run at all.
- *   - keyboard     key-press COUNT only (never which keys).          default ON
- *   - apps         foreground application NAME + seconds only.       default ON
+ *   - keyboard     key-press COUNT only (never which keys).          default OFF
+ *   - apps         foreground application NAME + seconds only.       default OFF
  *   - screenshots  one JPEG of the primary screen every few minutes. default OFF
  *   - managerViewScreenshots  explicit agreement that the manager and admins may view the
  *                  screenshots. Required for screenshots; without it screenshots stay off.
@@ -28,13 +28,16 @@ import path from 'node:path';
 export const CONSENT_VERSION = 2;
 const CONSENT_FILE = 'consent.json';
 
-/** Defaults shown on first launch. Screenshots are OFF unless the person turns them on. */
+/**
+ * Defaults shown on first launch. Everything optional is OFF until the person turns it on
+ * (a pre-ticked box is not a choice), as the website's Download page promises.
+ */
 export const DEFAULT_CONSENT = Object.freeze({
   version: CONSENT_VERSION,
   acceptedAt: null,
   activity: true,
-  keyboard: true,
-  apps: true,
+  keyboard: false,
+  apps: false,
   screenshots: false,
   managerViewScreenshots: false,
 });

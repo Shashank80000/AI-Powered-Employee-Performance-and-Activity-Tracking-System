@@ -10,6 +10,7 @@ Every route except `/health` and `/auth/login` needs `Authorization: Bearer <tok
 | POST | `/auth/login` | public | `{ email, password }` → `{ token, user }` |
 | GET | `/auth/setup` | public | `{ needed }`: true while no administrator exists |
 | POST | `/auth/setup` | public | `{ name, email, password }`: create the first administrator and sign in → `{ token, user }`. 409 once any administrator exists |
+| POST | `/auth/logout` | any | Records the sign-out time of this token's session (204) |
 | GET | `/auth/me` | any | Current user, with `mustChangePassword` (true after an admin set a temporary password) |
 | POST | `/auth/password` | any | `{ currentPassword, newPassword }`: change own password; clears `mustChangePassword`. Passwords need 8+ characters with a letter and a number |
 | GET | `/auth/demo` | public | `{ enabled, roles }`: whether one-click demo sign-in is available |
@@ -26,6 +27,11 @@ Every route except `/health` and `/auth/login` needs `Authorization: Bearer <tok
 | POST | `/users/managers` | admin | `{ name, email, password }`: create a manager (asked to change the password at first sign-in) |
 | PATCH | `/users/managers/:id` | admin | `{ name?, isActive? }`. Deactivating is refused (409) while the manager still has active employees |
 | POST | `/users/:id/password` | admin | `{ password }`: temporary password for a manager or employee (not admins) |
+| GET | `/agent/status` | any | `{ aiConfigured, model }` |
+| GET | `/agent/metrics?scope=&employeeId=&period=` | any (scoped) | Verified metrics and fact sheet for the AI assistant, no model call |
+| POST | `/agent/insights` | any (scoped) | `{ scope?: employee\|team, employeeId?, period?, question? }`: AI assistant answer with evidence. See [../ai-agent.md](../ai-agent.md) |
+| GET | `/agent/runs` | any | Your earlier assistant answers (`?all=true` for admins) |
+| POST | `/agent/runs/:id/feedback` | any (own) | `{ rating: 1-5, comment? }` |
 | GET | `/tasks?assignedTo=me\|<id>&status=` | any (scoped) | List tasks, each with `history` (comments and review steps) |
 | POST | `/tasks` | admin, manager | Create a task |
 | PATCH | `/tasks/:id` | any (scoped) | Employees: `{ status?: todo\|in-progress\|review, note?, actualMinutesDelta? }` (`review` records a submission with the note; only managers mark work `done`; 409 once done). Managers: any field |

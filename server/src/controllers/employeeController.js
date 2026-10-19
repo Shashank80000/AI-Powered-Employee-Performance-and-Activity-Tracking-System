@@ -37,8 +37,8 @@ async function assertActiveManager(id) {
 }
 
 const POPULATE = [
-  { path: 'user', select: 'name email' },
-  { path: 'manager', select: 'name' }
+  { path: 'user', select: 'name email mustChangePassword' },
+  { path: 'manager', select: 'name isActive' }
 ];
 
 function toResponse(employee) {
@@ -53,6 +53,8 @@ function toResponse(employee) {
     manager: employee.manager?._id?.toString() ?? employee.manager?.toString() ?? null,
     managerName: employee.manager?.name ?? null,
     status: employee.status,
+    // Still on the administrator's temporary password (has not signed in and chosen their own yet).
+    temporaryPassword: Boolean(employee.user.mustChangePassword),
     // Consent is given by the person in the desktop agent and can't be changed by admins.
     trackingConsent: employee.trackingConsent,
     consent: {
@@ -130,7 +132,9 @@ export async function updateEmployee(request, response) {
     throw new HttpError(403, 'Only administrators can change names and managers');
   }
   if (employee.status === 'inactive') throw new HttpError(409, 'Reactivate this employee before editing them');
-  if (changes.manager) await assertActiveManager(changes.manager);
+  // Only a newly chosen manager must be active, so other details stay editable.
+  const currentManager = (employee.manager?._id ?? employee.manager)?.toString() ?? null;
+  if (changes.manager && changes.manager !== currentManager) await assertActiveManager(changes.manager);
 
   const { name, ...profile } = changes;
   if (name) await User.updateOne({ _id: employee.user._id }, { name });
@@ -144,6 +148,8 @@ export async function updateEmployee(request, response) {
 export async function reactivateEmployee(request, response) {
   const employee = await findEmployeeInScope(request.user, request.params.id);
   employee.status = 'active';
+  // A manager deactivated in the meantime can't review their work: leave them unassigned so the admin picks a new one.
+  if (employee.manager && !(await User.exists({ _id: employee.manager, role: 'manager', isActive: true }))) employee.manager = null;
   await Promise.all([employee.save(), User.updateOne({ _id: employee.user._id }, { isActive: true })]);
   await employee.populate(POPULATE);
   response.json({ employee: toResponse(employee) });
@@ -152,6 +158,8 @@ export async function reactivateEmployee(request, response) {
 export async function deactivateEmployee(request, response) {
   const employee = await findEmployeeInScope(request.user, request.params.id);
   employee.status = 'inactive';
-  await Promise.all([employee.save(), User.updateOne({ _id: employee.user._id }, { isActive: false })]);
+  // Tracking stays off until they are reactivated and start it again, and their sessions (web and agent) end.
+  employee.tracking = { state: 'stopped', changedAt: new Date(), changedBy: 'system' };
+  await Promise.all([employee.save(), User.updateOne({ _id: employee.user._id }, { isActive: false, $inc: { tokenVersion: 1 } })]);
   response.status(204).end();
 }

@@ -1,4 +1,4 @@
-import { BarChart3, CalendarCheck, CircleHelp, LayoutDashboard, ListChecks, UserRound, Users } from 'lucide-react';
+import { BarChart3, Bot, CalendarCheck, CircleHelp, LayoutDashboard, ListChecks, UserRound, Users } from 'lucide-react';
 import AppShell from '../components/common/AppShell.jsx';
 
 const NAV_ITEMS = [
@@ -6,7 +6,8 @@ const NAV_ITEMS = [
   { label: 'My team', to: '/manager/employees', icon: Users },
   { label: 'Tasks', to: '/manager/tasks', icon: ListChecks },
   { label: 'Reports', to: '/manager/reports', icon: BarChart3 },
-  { label: 'Daily analysis', to: '/manager/analysis', icon: CalendarCheck }
+  { label: 'Daily analysis', to: '/manager/analysis', icon: CalendarCheck },
+  { label: 'AI assistant', to: '/manager/assistant', icon: Bot }
 ];
 
 const FOOTER_ITEMS = [

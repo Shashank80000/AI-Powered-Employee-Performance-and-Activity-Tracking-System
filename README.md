@@ -53,7 +53,11 @@ The one-click buttons appear only when `DEMO_MODE=true` in `server/.env`. **Keep
 
 **First run:** on a database without any administrator, the sign-in page opens **Create the administrator** (`/setup`), where the first visitor creates the administrator account. It closes as soon as one exists. On a public deployment, complete it right after deploying.
 
-**How it's used:** an administrator creates managers (**Managers**) and employees (**Employees**, choosing each person's manager). New accounts get a temporary password and choose their own at first sign-in. Managers assign tasks to their team; employees start them and submit them for review; managers approve the work or send it back with feedback. The in-app **Help** page (also public at `/help`) is the full user guide, with a permission table and troubleshooting.
+**How it's used:** an administrator creates managers (**Managers**) and employees (**Employees**, choosing each person's manager). New accounts get a temporary password and must choose their own at first sign-in, on the website or in the desktop agent (the server refuses everything else until they do). Managers assign tasks to their team; employees start them and submit them for review; managers approve the work or send it back with feedback. The in-app **Help** page (also public at `/help`) is the full user guide, with a permission table and troubleshooting.
+
+### AI assistant
+
+The **AI assistant** page (every role) answers questions about tasks, deadlines and sign-in activity. The server calculates every number from the records, Claude only interprets them, and statements the records don't support are removed. Set `ANTHROPIC_API_KEY` in `server/.env` to use Claude; without it, answers come from fixed rules. See [docs/ai-agent.md](docs/ai-agent.md) and the [evaluation report](docs/evaluation/ai-agent-evaluation.md).
 
 ### AI service (optional)
 
@@ -98,8 +102,8 @@ In real use, employees don't run it from source: they **download it from the web
 
    This builds the installer for the OS you run it on (with that address built in) and copies it to `server/storage/downloads` (or `DOWNLOADS_DIR`). Native modules mean each OS must be built on that OS. To cover all three from a Mac, run `scripts/cross-build-docker.sh <same address> <out folder>` (needs Docker; builds Linux `.AppImage`/`.deb` and a Windows `.zip`), then `npm run agent:publish -- --from <out folder>`. For a Windows `.exe` installer, run `agent:publish` on a Windows PC, or use the **Build desktop agent** GitHub workflow and publish its artifacts with `--from`.
 2. **Each employee opens `/download`** on the website (linked from the home page and from the dashboard's "Desktop agent not running" badge). The page detects Windows, macOS or Linux and offers the matching installer. All formats are listed below it, with first-launch tips.
-3. They install it, accept the monitoring notice, sign in with their work email and choose what to share.
-4. The agent tracks while they're signed in on the website and sends activity to the server every minute, and it appears on their dashboard and their manager's.
+3. They install it, accept the monitoring notice and sign in with the work email and temporary password from the administrator. The agent asks them to choose their own password, then what to share.
+4. Tracking starts. The agent records activity every minute and uploads it every few minutes, under the account it signed in with (the server takes the person from the sign-in, never from the data). It appears on their own dashboard and their manager's; other employees can't see it.
 
 The download endpoints (`GET /api/downloads`, `GET /api/downloads/:file`) are public and only serve installer files from that folder.
 
@@ -114,6 +118,7 @@ The download endpoints (`GET /api/downloads`, `GET /api/downloads/:file`) are pu
 | `npm run build` | Production build of the dashboard (`client/dist`) |
 | `npm test` | Server unit tests (AI service: `pytest` inside `ai-service/`). Add `TEST_MONGODB_URI=mongodb://127.0.0.1:27017/workplus_test` to also run the end-to-end admin → manager → employee workflow test, which empties that database |
 | `npm run agent:publish -- --server <address>` | Build the desktop agent installer for this OS and publish it on the website's Download page |
+| `npm run evaluate:agent -w @tracker/server` | Evaluate the AI assistant and write `docs/evaluation/ai-agent-evaluation.md` (see [docs/ai-agent.md](docs/ai-agent.md)) |
 | `npm run analyze` | Run the analysis agent for today (inside its activated virtualenv) |
 
 Every push runs these tests on Windows, macOS and Linux via GitHub Actions (`.github/workflows/ci.yml`).
@@ -123,13 +128,13 @@ Every push runs these tests on Windows, macOS and Linux via GitHub Actions (`.gi
 These are part of the product contract:
 
 1. **Consent first.** The installer shows a monitoring notice (`desktop-agent/build/license_en.txt`), including that the manager can view screenshots, and the person must click **I Agree** to install (Windows installer and macOS disk image). When the person opens the desktop agent for the first time, it explains what can be collected and lets them choose. Nothing is tracked until they agree, and the server rejects any data they didn't agree to. They can change or withdraw consent at any time.
-2. **Tracking is controlled from the website.** Signing in on the dashboard starts tracking in the employee's desktop agent; signing out stops it. The employee can **Pause / Resume** from the dashboard's top bar or from the agent, and both stay in step. The server ignores anything recorded while tracking is paused or stopped.
+2. **Tracking can be controlled from the website.** Signing in to the desktop agent or on the dashboard starts tracking; signing out of the dashboard stops it, and **Start tracking** in the agent resumes it. The employee can **Pause / Resume** from the dashboard's top bar or from the agent, and both stay in step. The server ignores anything recorded while tracking is paused or stopped.
 3. **Real OS permissions.** The agent asks the operating system for each permission it needs (e.g. Screen Recording and Input Monitoring on macOS) and only for what the person enabled.
 4. Store activity counts and durations, never keystroke content, window titles or URLs.
 5. **Screenshots are optional and off by default.** When the person turns them on, one is taken every 5 minutes (never while paused, idle or locked), with a notification each time. The person's **manager (own team only) and admins can view screenshots**. Turning screenshots on requires a separate, explicit checkbox: "I agree that my manager and administrators can view my screenshots" (stored as `managerViewScreenshots`; the server refuses screenshots without it). **Every view is recorded**, and the person sees who opened each screenshot and when. The person can delete any screenshot, and turning screenshots off deletes all of them. The analysis agent labels each one by category. **Every screenshot is deleted automatically 3 days after it was taken** (`SCREENSHOT_RETENTION_DAYS`). Screenshots taken under the earlier terms (version 1, "managers never see screenshots") are never shown to managers.
-6. Raw activity expires after 90 days; daily aggregates (performance records, daily analyses) are kept.
-7. Every API route except login is protected by JWT and role-based scoping. Managers see only their team; employees see only themselves.
-8. AI output (reports, daily analyses) uses aggregated data only and is labelled as AI-generated.
+6. Raw activity expires after 90 days; daily aggregates (performance records, daily analyses) are kept, including after screenshots are turned off or consent is withdrawn. A daily analysis keeps its short per-screenshot activity labels, never the images.
+7. Every API route except sign-in, first-run setup, demo sign-in, health and installer downloads is protected by JWT and role-based scoping. Changing or resetting a password, or deactivating an account, ends its existing sessions. Managers see only their team; employees see only themselves.
+8. AI output is labelled as AI-generated. Reports use aggregated daily metrics only; daily analyses use the category label and a short activity description of each consented screenshot, never stored images.
 
 ## Deployment
 
@@ -141,7 +146,7 @@ The API and AI service go on **Render** (`render.yaml`), the dashboard on **Verc
    - `CLIENT_ORIGIN`: leave as `https://placeholder.vercel.app` for now
    - `AI_SERVICE_URL`: the `workplus-ai` URL, e.g. `https://workplus-ai.onrender.com` (fill in after it deploys)
 
-   `JWT_SECRET` and `SERVICE_API_KEY` are generated. `DEMO_MODE` is `false`; set it to `true` in the Render dashboard only for a demo. Check `https://<workplus-api>.onrender.com/api/health` shows `"database":"connected"`.
+   `JWT_SECRET` and `SERVICE_API_KEY` are generated. Set `APP_TIMEZONE` to where people work (for example `Asia/Kolkata`): every "day" in dashboards, screenshots and daily analyses runs midnight to midnight there. It defaults to `UTC`. After changing it on a database that already has data, sign in as an administrator and call `POST /api/performance/recalculate` with `{"days": 90}` once, so past daily records are rebuilt under the new zone. `DEMO_MODE` is `false`; set it to `true` in the Render dashboard only for a demo. Check `https://<workplus-api>.onrender.com/api/health` shows `"database":"connected"`.
 3. **Vercel**: Add New → Project → this repo, **Root Directory `client`**, environment variable `VITE_API_URL=https://<workplus-api>.onrender.com` (no `/api`, no trailing slash). Deploy.
 4. **Connect them**: on Render, set `CLIENT_ORIGIN` to the Vercel URL (no trailing slash).
 5. **Demo data** (optional): run `npm run seed` locally with `server/.env` pointing at the same Atlas database.

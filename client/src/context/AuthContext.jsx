@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import * as authService from '../services/authService.js';
 import { setTracking } from '../services/trackingService.js';
+import { setAppTimeZone } from '../utils/formatters.js';
 
 const AuthContext = createContext(null);
 
@@ -8,6 +9,9 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [demo, setDemo] = useState(() => authService.isDemoSession());
   const [loading, setLoading] = useState(true);
+
+  // Before children render with the new user, so their first todayKey() already uses the server's zone.
+  setAppTimeZone(user?.timeZone);
 
   useEffect(() => {
     authService
@@ -20,6 +24,7 @@ export function AuthProvider({ children }) {
   const logout = useCallback(async () => {
     // Signing out of the website stops tracking until the next web sign-in (not for demo sessions).
     if (user?.role === 'employee' && !demo) await setTracking('stopped').catch(() => {});
+    await authService.endSession();
     authService.logout();
     setDemo(false);
     setUser(null);
@@ -39,8 +44,9 @@ export function AuthProvider({ children }) {
 
   const login = useCallback(async (email, password) => {
     const signedIn = await authService.login(email, password);
-    // Signing in on the website starts tracking in the employee's desktop agent.
-    if (signedIn.role === 'employee') await setTracking('active').catch(() => {});
+    // Signing in on the website starts tracking in the employee's desktop agent,
+    // once they have replaced the temporary password (the server refuses anything else until then).
+    if (signedIn.role === 'employee' && !signedIn.mustChangePassword) await setTracking('active').catch(() => {});
     setDemo(false);
     setUser(signedIn);
     return signedIn;
@@ -61,9 +67,15 @@ export function AuthProvider({ children }) {
     return created;
   }, []);
 
-  const changePassword = useCallback(async (currentPassword, newPassword) => {
-    setUser(await authService.changePassword(currentPassword, newPassword));
-  }, []);
+  const changePassword = useCallback(
+    async (currentPassword, newPassword) => {
+      const updated = await authService.changePassword(currentPassword, newPassword);
+      // First sign-in finished: start tracking now, as a normal sign-in would have.
+      if (user?.mustChangePassword && updated.role === 'employee') await setTracking('active').catch(() => {});
+      setUser(updated);
+    },
+    [user]
+  );
 
   const value = useMemo(
     () => ({ user, loading, demo, login, loginDemo, logout, changePassword, setupAdmin }),

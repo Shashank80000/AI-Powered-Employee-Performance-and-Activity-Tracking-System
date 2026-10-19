@@ -6,7 +6,7 @@ import { HttpError } from '../middleware/errorMiddleware.js';
 import { deleteScreenshot, isJpeg, readImage, recordView, storeScreenshot, toScreenshotResponse } from '../services/screenshotService.js';
 import { CONSENT_VERSION } from './consentController.js';
 import { capturedWhileNotTracking } from './trackingController.js';
-import { addDays, startOfDay } from '../utils/dateUtils.js';
+import { addDays, dayStart, startOfDay } from '../utils/dateUtils.js';
 
 const MAX_CLOCK_SKEW_MS = 5 * 60 * 1000;
 const dateSchema = z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional() });
@@ -39,7 +39,7 @@ export async function uploadScreenshot(request, response) {
 export async function listOwnScreenshots(request, response) {
   const { date } = dateSchema.parse(request.query);
   const employee = await currentEmployee(request.user);
-  const start = startOfDay(date ? new Date(`${date}T00:00:00Z`) : new Date());
+  const start = date ? dayStart(date) : startOfDay();
   const screenshots = await Screenshot.find({ employee: employee._id, capturedAt: { $gte: start, $lt: addDays(start, 1) } })
     .sort({ capturedAt: 1 })
     .populate('views.user', 'name role');
@@ -80,7 +80,7 @@ const teamQuerySchema = z.object({
 export async function listTeamScreenshots(request, response) {
   const { employeeId, date } = teamQuerySchema.parse(request.query);
   const employee = await findEmployeeInScope(request.user, employeeId);
-  const start = startOfDay(date ? new Date(`${date}T00:00:00Z`) : new Date());
+  const start = date ? dayStart(date) : startOfDay();
   const screenshots = await Screenshot.find({
     employee: employee._id,
     capturedAt: { $gte: start, $lt: addDays(start, 1) },

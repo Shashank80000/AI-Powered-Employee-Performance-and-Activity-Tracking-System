@@ -26,6 +26,11 @@ services:
         generateValue: true
       - key: JWT_EXPIRES_IN
         value: 3d
+      - key: AGENT_JWT_EXPIRES_IN # desktop agent sign-ins; ended at once by a password change/reset or deactivation
+        value: 30d
+      # Where people work: each day runs midnight to midnight in this zone. Change to e.g. Asia/Kolkata.
+      - key: APP_TIMEZONE
+        value: UTC
       # Set to "true" only for a demo: it signs people in without a password.
       - key: DEMO_MODE
         value: "false"

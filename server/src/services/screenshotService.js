@@ -51,9 +51,18 @@ export async function deleteAllForEmployee(employeeId) {
   return screenshots.length;
 }
 
-/** Records that `user` opened this screenshot's image. */
+// Loading the same image again within this window (a re-render, a double click) is the same viewing.
+const SAME_VIEW_MS = 60 * 1000;
+
+/** Records that `user` opened this screenshot's image, once per viewing. */
 export async function recordView(screenshot, user) {
-  await Screenshot.updateOne({ _id: screenshot._id }, { $push: { views: { user: user._id, at: new Date() } } });
+  const now = new Date();
+  const since = new Date(now.getTime() - SAME_VIEW_MS);
+  // One atomic update, so two requests arriving together can't both add an entry.
+  await Screenshot.updateOne(
+    { _id: screenshot._id, views: { $not: { $elemMatch: { user: user._id, at: { $gte: since } } } } },
+    { $push: { views: { user: user._id, at: now } } }
+  );
 }
 
 export function retentionCutoff(now = new Date(), days = env.SCREENSHOT_RETENTION_DAYS) {

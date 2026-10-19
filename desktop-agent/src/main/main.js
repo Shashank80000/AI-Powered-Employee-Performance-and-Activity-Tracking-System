@@ -67,6 +67,11 @@ let mainWindow = null;
 /** @type {Tray|null} */
 let tray = null;
 let currentUser = null;
+/**
+ * Signed in with the administrator's temporary password: the person must choose their own
+ * before anything else ({ id, name, email }). The server refuses all other calls until then.
+ */
+let passwordChangeFor = null;
 let lastUserId = null;
 let authError = null;
 let tasks = [];
@@ -79,8 +84,9 @@ let consent = normalizeConsent({});
 /** One-line message for the person (e.g. the server turned screenshots off). */
 let notice = null;
 /**
- * Start/pause state shared with the website. Tracking runs only while it is 'active':
- * signing in on the website starts it, signing out stops it, either side can pause.
+ * Start/pause state shared with the website. Tracking runs only while it is 'active'.
+ * Signing in (here or on the website) starts it, signing out of the website stops it,
+ * and either side can pause, resume or start it again.
  */
 let webControl = { state: 'stopped', changedBy: null };
 /** A Pause/Resume made here that hasn't reached the server yet. */
@@ -97,13 +103,24 @@ let withdrawPending = false;
 
 const api = createApiService({
   baseUrl: loadServerUrl(),
-  onUnauthorized: () => {
-    if (!currentUser) return;
-    // Token expired/revoked: stop tracking and ask the employee to sign in again.
-    authError = 'Your session expired. Please sign in again.';
+  onUnauthorized: (err) => {
+    if (!currentUser && !passwordChangeFor) return;
+    // Token expired or revoked (password changed or reset, account deactivated): stop and ask to sign in again.
+    authError = unauthorizedMessage(err);
+    passwordChangeFor = null;
     endSession({ keepQueue: true }).catch(() => {});
   },
 });
+
+/** Only what the window shows about the person. */
+const publicUser = ({ id, name, email }) => ({ id, name, email });
+
+/** Why the server ended this session, in words the employee can act on. */
+function unauthorizedMessage(err) {
+  if (err?.code === 'SESSION_ENDED') return 'Your password was changed or reset. Sign in with your new password.';
+  if (err?.message === 'Account is not active') return 'Your account has been deactivated. Ask your administrator.';
+  return 'Your session expired. Please sign in again.';
+}
 
 let tracker = null;
 let activityService = null;
@@ -187,16 +204,22 @@ async function syncTrackingControl() {
   pushStatus();
 }
 
-/** Pause/Resume from this agent (window or tray). Resuming needs a website sign-in first. */
+/** Start, pause or resume from this agent (window or tray). Shown on the website too. */
 function controlFromAgent(state) {
   if (!currentUser) throw new Error('Not signed in.');
-  if (state === 'active' && webControl.state === 'stopped') {
-    throw new Error('Sign in on the WorkPlus website to start tracking.');
-  }
+  if (state === 'active' && !consent.acceptedAt) throw new Error('Choose what to share first.');
   webControl = { ...webControl, state, changedBy: 'agent' };
   pendingControl = state;
   followWebControl();
   syncTrackingControl();
+}
+
+/**
+ * Signing in to the agent (or agreeing in it for the first time) starts tracking, so the
+ * first sign-in with the administrator's account is enough. A pause is left as it is.
+ */
+function startIfStopped() {
+  if (currentUser && consent.acceptedAt && webControl.state === 'stopped') controlFromAgent('active');
 }
 
 /** Server returned 403 for a screenshot: turn screenshots off here too and tell the person. */
@@ -301,6 +324,7 @@ function buildStatus() {
   return {
     ...t,
     user: currentUser,
+    passwordChange: passwordChangeFor,
     authError,
     notice,
     tasks,
@@ -396,7 +420,11 @@ function updateTray(status) {
     tracking: 'Tracking active',
     idle: 'Tracking active (you are idle)',
     paused: 'Tracking PAUSED',
-    stopped: status.user ? 'Not tracking (waiting for your consent)' : 'Not tracking (signed out)',
+    stopped: !status.user
+      ? 'Not tracking (signed out)'
+      : status.consent?.acceptedAt
+        ? 'Not tracking (press Start tracking)'
+        : 'Not tracking (waiting for your consent)',
   }[visualState];
   const shotsOn = Boolean(status.consent?.acceptedAt && status.consent?.screenshots);
   const shotMinutes = Math.round((status.screenshots?.intervalSeconds ?? SCREENSHOT_INTERVAL) / 60);
@@ -419,7 +447,11 @@ function updateTray(status) {
     { label: 'Show status window', click: showWindow },
     status.tracking === 'tracking'
       ? { label: 'Pause tracking', click: () => runTrayControl('paused') }
-      : { label: 'Resume tracking', enabled: status.tracking === 'paused' && webControl.state !== 'stopped', click: () => runTrayControl('active') },
+      : {
+          label: status.tracking === 'paused' ? 'Resume tracking' : 'Start tracking',
+          enabled: Boolean(status.user && status.consent?.acceptedAt),
+          click: () => runTrayControl('active'),
+        },
     { type: 'separator' },
     { label: 'Quit', click: () => app.quit() },
   ]);
@@ -610,8 +642,13 @@ async function restoreStoredSession() {
   if (!(await api.loadStoredToken())) return;
   try {
     const user = await api.me();
-    if (user?.role === 'employee') await beginSession(user);
-    else await api.clearToken();
+    if (user?.role !== 'employee') await api.clearToken();
+    else if (user.mustChangePassword) passwordChangeFor = publicUser(user);
+    else {
+      await beginSession(user);
+      // Still never started (e.g. reactivated since): opening the agent starts it, like a sign-in.
+      if (webControl.changedBy === 'system') startIfStopped();
+    }
   } catch (err) {
     if (err?.isNetworkError) {
       authError = 'Server unreachable. Sign in again when you are back online.';
@@ -645,17 +682,47 @@ function registerIpc() {
     if (!email || !password) throw new Error('Email and password are required.');
     if (currentUser) await endSession();
 
+    passwordChangeFor = null;
+
     const { user } = await api.login(email, password);
     if (user.role !== 'employee') {
       await api.clearToken();
       throw new Error('Only employee accounts can run the activity agent.');
     }
+    if (user.mustChangePassword) {
+      // First sign-in with the administrator's temporary password: choose a new one first.
+      // The temporary token is never written to disk.
+      passwordChangeFor = publicUser(user);
+      return;
+    }
     await api.saveToken();
     await beginSession(user);
+    startIfStopped();
+  });
+
+  /** Replace the temporary password, then continue exactly like a normal sign-in. */
+  handle('agent:changePassword', async (payload) => {
+    if (!passwordChangeFor) throw new Error('Sign in first.');
+    const currentPassword = typeof payload?.currentPassword === 'string' ? payload.currentPassword : '';
+    const newPassword = typeof payload?.newPassword === 'string' ? payload.newPassword : '';
+    if (!currentPassword || !newPassword) throw new Error('Enter the temporary password and your new password.');
+    let user;
+    try {
+      user = await api.changePassword(currentPassword, newPassword);
+    } catch (err) {
+      // The server explains what is wrong (wrong temporary password, too weak, ...).
+      const detail = err?.body?.error?.details?.[0]?.message;
+      throw new Error(detail || err?.message || String(err));
+    }
+    passwordChangeFor = null;
+    await api.saveToken();
+    await beginSession(user);
+    startIfStopped();
   });
 
   handle('agent:logout', async () => {
     authError = null;
+    passwordChangeFor = null;
     if (currentUser) await endSession();
     else await api.clearToken();
   });
@@ -723,7 +790,10 @@ function registerIpc() {
     }
     if (!next.screenshots) screenshotService.clear(); // discard any image not yet uploaded
     notice = null;
+    const firstAcceptance = !consent.acceptedAt;
     applyConsent(saveConsent(next));
+    // Agreeing right after the first sign-in starts tracking; later changes to the choices don't.
+    if (firstAcceptance) startIfStopped();
     return { consent: publicConsent() };
   });
 

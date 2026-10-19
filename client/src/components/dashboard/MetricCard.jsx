@@ -9,7 +9,8 @@ export default function MetricCard({ label, value, change, detail = 'vs. previou
       </div>
       <p>{label}</p>
       <div className="metric-value">{value}</div>
-      {change !== undefined && (
+      {change === null && <div className="metric-change">No earlier data to compare</div>}
+      {change !== undefined && change !== null && (
         <div className="metric-change">
           <span className={`change-${direction}`}>{formatChange(change)}</span> {detail}
         </div>

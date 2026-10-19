@@ -5,7 +5,7 @@ import { currentEmployee, findEmployeeInScope } from '../middleware/roleMiddlewa
 import { HttpError } from '../middleware/errorMiddleware.js';
 import { capturedWhileNotTracking } from './trackingController.js';
 import { summarizeCameraDay } from '../utils/cameraSummary.js';
-import { addDays, startOfDay } from '../utils/dateUtils.js';
+import { addDays, dayStart, startOfDay } from '../utils/dateUtils.js';
 
 const MAX_CLOCK_SKEW_MS = 5 * 60 * 1000;
 // An observation closes the interval it was taken in, so allow it right after a pause.
@@ -44,7 +44,7 @@ function toObservationResponse({ _id, observedAt, state, activity, confidence, s
 }
 
 function dayRange(date) {
-  const start = startOfDay(date ? new Date(`${date}T00:00:00Z`) : new Date());
+  const start = date ? dayStart(date) : startOfDay();
   return { $gte: start, $lt: addDays(start, 1) };
 }
 

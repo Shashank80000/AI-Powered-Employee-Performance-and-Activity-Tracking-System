@@ -27,8 +27,8 @@ export default function EmployeeDashboard() {
         <div>
           <strong>What the desktop agent collects</strong>
           <p>
-            Only what you chose when you set it up: active and idle time, and optionally keyboard and mouse counts, the names of the apps you use,
-            and screenshots every 5 minutes. It never records what you type, window titles or websites. Change your choices or pause tracking at any
+            Only what you chose when you set it up: active and idle time with a mouse-movement count, and optionally keyboard counts, the names
+            of the apps you use, and screenshots every few minutes. It never records what you type, window titles or websites. Change your choices or pause tracking at any
             time in the desktop agent. Not installed yet? <Link to="/download">Download the desktop agent</Link>.
           </p>
         </div>

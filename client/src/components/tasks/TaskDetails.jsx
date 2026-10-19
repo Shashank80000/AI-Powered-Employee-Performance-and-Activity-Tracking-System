@@ -10,8 +10,12 @@ const EVENT_LABELS = {
   comment: 'commented',
   submitted: 'submitted the work for review',
   approved: 'approved the work',
-  'changes-requested': 'asked for changes'
+  'changes-requested': 'asked for changes',
+  'status-changed': 'changed the status'
 };
+
+// A manager can move a task back to these; review and done come from submitting and approving.
+const REVIEWER_STATUSES = ['todo', 'in-progress'];
 
 /** What the person should do next, in one sentence, for the task's current state. */
 function nextStep(task, reviewer) {
@@ -121,7 +125,9 @@ export default function TaskDetails({ task, reviewer, onClose, onChanged }) {
               disabled={busy}
               onChange={(event) => run(() => updateTask(task.id, { status: event.target.value }))}
             >
-              {TASK_STATUSES.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
+              {TASK_STATUSES.filter((status) => status.value === task.status || REVIEWER_STATUSES.includes(status.value)).map((status) => (
+                <option key={status.value} value={status.value}>{status.label}</option>
+              ))}
             </select>
           </label>
         )}

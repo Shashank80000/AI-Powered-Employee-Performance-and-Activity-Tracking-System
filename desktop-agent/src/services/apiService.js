@@ -25,6 +25,8 @@ export class ApiError extends Error {
     this.name = 'ApiError';
     this.status = status;
     this.body = body;
+    /** Stable reason from the server, e.g. 'PASSWORD_CHANGE_REQUIRED' or 'SESSION_ENDED'. */
+    this.code = body?.error?.code ?? null;
   }
 
   /** True when the request never reached the server (offline, DNS, timeout). */
@@ -127,16 +129,29 @@ export function createApiService({ baseUrl, onUnauthorized } = {}) {
     },
 
     /**
-     * POST /auth/login. Stores the token in memory on success.
+     * POST /auth/login. Stores the token in memory on success. X-Client marks it as the
+     * agent's sign-in, which the server lets last longer than a website session.
      * @param {string} email
      * @param {string} password
-     * @returns {Promise<{token: string, user: {id: string, name: string, email: string, role: string}}>}
+     * @returns {Promise<{token: string, user: {id: string, name: string, email: string, role: string, mustChangePassword: boolean}}>}
      */
     async login(email, password) {
-      const data = await request('POST', '/auth/login', { email, password });
+      const data = await request('POST', '/auth/login', { email, password }, { headers: { 'X-Client': 'agent' } });
       if (!data?.token || !data?.user) throw new ApiError('Malformed login response', 500, data);
       token = data.token;
       return data;
+    },
+
+    /**
+     * POST /auth/password: replace the administrator's temporary password (or any current one).
+     * The server ends every other session and returns a new token for this one, kept in memory.
+     * @returns {Promise<{id: string, name: string, email: string, role: string, mustChangePassword: boolean}>}
+     */
+    async changePassword(currentPassword, newPassword) {
+      const data = await request('POST', '/auth/password', { currentPassword, newPassword }, { headers: { 'X-Client': 'agent' } });
+      if (!data?.token || !data?.user) throw new ApiError('Malformed password change response', 500, data);
+      token = data.token;
+      return data.user;
     },
 
     /** GET /auth/me -> user. */

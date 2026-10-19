@@ -63,8 +63,8 @@ const GUIDES = {
       title: 'Manage accounts',
       steps: [
         <><b>Move someone to another team</b>: on Employees, select <b>Edit</b> and choose a different manager.</>,
-        <><b>Someone forgot their password</b>: select <b>Reset password</b> on the Employees or Managers page and give them the new temporary password.</>,
-        <><b>Someone leaves</b>: select <b>Deactivate</b>. They are signed out at once and can&apos;t sign in. Their history stays, and <b>Reactivate</b> restores access.</>,
+        <><b>Someone forgot their password</b>: select <b>Reset password</b> on the Employees or Managers page and give them the new temporary password. They are signed out everywhere, including the desktop agent. <b>temporary password</b> next to their status means they haven&apos;t chosen their own yet.</>,
+        <><b>Someone leaves</b>: select <b>Deactivate</b>. They are signed out at once (website and desktop agent), tracking stops and they can&apos;t sign in. Their history stays, and <b>Reactivate</b> lets them sign in again. If their manager was deactivated meanwhile, choose a new one.</>,
         'A manager with employees can only be deactivated after their employees are moved to another manager.',
         <>Use the search box and the <b>Manager</b> and <b>Status</b> filters to find people. <b>No manager</b> shows who still needs one.</>
       ]
@@ -108,7 +108,7 @@ const GUIDES = {
         <>Open a task marked <b>Waiting for review</b> and read the employee&apos;s note.</>,
         <><b>Approve</b> marks it <b>Done</b>. You can add a short comment.</>,
         <><b>Send back for changes</b> returns it to the employee as <b>In progress</b>, marked <b>Changes requested</b>. Explain exactly what needs to change.</>,
-        <>Need to reopen approved work? Use <b>Change status</b> in the task.</>
+        <>Need to reopen approved work? Use <b>Change status</b> in the task to move it back to <b>To do</b> or <b>In progress</b>. Work is only marked done by approving it.</>
       ]
     }
   ],
@@ -116,8 +116,9 @@ const GUIDES = {
     {
       title: 'First steps',
       steps: [
-        'Sign in with the email and temporary password your administrator gave you, then choose your own password.',
-        <>Install the desktop agent from the <Link to="/download">Download page</Link> and sign in with the same email and password. It records only what you choose to share.</>,
+        'Your administrator gives you a work email and a temporary password. The first time you sign in, here or in the desktop agent, you choose your own password.',
+        <>Install the desktop agent from the <Link to="/download">Download page</Link> and sign in with the same email and password. Choose what to share; tracking starts right away and your activity appears on your dashboard here.</>,
+        'Signing out of this website stops tracking. Start it again in the agent, or by signing in here.',
         <>Your manager&apos;s name is on <b>My account</b>.</>
       ]
     },
@@ -134,7 +135,7 @@ const GUIDES = {
     {
       title: 'Your activity and privacy',
       steps: [
-        <><b>Overview</b> and <b>My activity</b> show exactly what your manager sees about you.</>,
+        <><b>Overview</b> and <b>My activity</b> show the activity your manager sees about you, and <b>My activity</b> lists the AI reports generated about you. Your manager and administrators also see your daily analysis and, if you turned them on, your screenshots and camera check labels.</>,
         <>If you turned screenshots on, <b>My screenshots</b> lists them. You can delete any of them, and see who viewed each one.</>,
         'Pause tracking at any time from the button at the top of the page or in the desktop agent.'
       ]
@@ -145,7 +146,7 @@ const GUIDES = {
 const FAQ = [
   ['I can’t sign in', 'Check the email address and password (passwords are case-sensitive). If it still fails, your administrator can reset your password, or your account may have been deactivated. Only an administrator can fix either.'],
   ['I forgot my password', 'Ask your administrator to reset it. They give you a temporary password, and you choose a new one when you sign in.'],
-  ['The page says my session expired, or sends me back to Sign in', 'Sessions end after a few days, or at once if your account was deactivated. Sign in again.'],
+  ['The page says my session expired, or sends me back to Sign in', 'Sessions end after a few days (30 days in the desktop agent), or at once if your password was changed or reset or your account was deactivated. Sign in again.'],
   ['The website takes a long time to open', 'The server sleeps after a quiet period and needs up to a minute to wake up. Wait, then reload the page.'],
   ['As a manager, I don’t see an employee', 'You only see employees assigned to you. Ask your administrator to choose you as their manager on the Employees page.'],
   ['As an employee, I can’t mark a task done', 'That is expected: submit it for review instead. Your manager marks it done when they approve it.'],

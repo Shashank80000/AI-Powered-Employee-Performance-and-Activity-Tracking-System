@@ -45,6 +45,10 @@ export default function EmployeesPage() {
       (!statusFilter || employee.status === statusFilter) &&
       (!needle || [employee.name, employee.email, employee.employeeCode, employee.department].some((value) => value?.toLowerCase().includes(needle)))
   );
+  const inactiveManagerName =
+    managerFilter && managerFilter !== 'none' && managers.data && !managers.data.some((manager) => manager.id === managerFilter)
+      ? (employees.data?.find((employee) => employee.manager === managerFilter)?.managerName ?? 'Deactivated manager')
+      : null;
   const unassigned = employees.data?.filter((employee) => !employee.manager && employee.status !== 'inactive').length ?? 0;
   const replace = (updated) => employees.setData((previous) => previous.map((item) => (item.id === updated.id ? updated : item)));
 
@@ -114,6 +118,8 @@ export default function EmployeesPage() {
                 <option value="">Everyone</option>
                 <option value="none">No manager</option>
                 {managers.data?.map((manager) => <option key={manager.id} value={manager.id}>{manager.name}</option>)}
+                {/* A link from Managers can name a deactivated manager, who isn't in the active list. */}
+                {inactiveManagerName && <option value={managerFilter}>{inactiveManagerName} (deactivated)</option>}
               </select>
             </label>
             <label className="inline-label">

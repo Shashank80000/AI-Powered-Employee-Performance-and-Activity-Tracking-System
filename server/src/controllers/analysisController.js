@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { DailyAnalysis } from '../models/DailyAnalysis.js';
-import { currentEmployee, findEmployeeInScope } from '../middleware/roleMiddleware.js';
-import { startOfDay, toDateKey } from '../utils/dateUtils.js';
+import { employeeForRequest } from '../middleware/roleMiddleware.js';
+import { addDays, dayStart, startOfDay, toDateKey } from '../utils/dateUtils.js';
 
 const querySchema = z.object({
   employeeId: z.string().optional(),
@@ -35,8 +35,9 @@ export function toAnalysisResponse(analysis) {
 /** One day's analysis. Contains category labels only, never images. */
 export async function getDailyAnalysis(request, response) {
   const { employeeId, date } = querySchema.parse(request.query);
-  const employee = request.user.role === 'employee' || !employeeId ? await currentEmployee(request.user) : await findEmployeeInScope(request.user, employeeId);
-  const day = startOfDay(date ? new Date(`${date}T00:00:00Z`) : new Date());
-  const analysis = await DailyAnalysis.findOne({ employee: employee._id, date: day });
+  const employee = await employeeForRequest(request.user, employeeId);
+  const day = date ? dayStart(date) : startOfDay();
+  // A range, so analyses stored before a change of APP_TIMEZONE are still found.
+  const analysis = await DailyAnalysis.findOne({ employee: employee._id, date: { $gte: day, $lt: addDays(day, 1) } });
   response.json({ dailyAnalysis: analysis ? toAnalysisResponse(analysis) : null });
 }

@@ -7,7 +7,7 @@ import { Performance } from '../models/Performance.js';
 import { Screenshot, SCREENSHOT_CATEGORIES } from '../models/Screenshot.js';
 import { HttpError } from '../middleware/errorMiddleware.js';
 import { readImage, toScreenshotResponse } from '../services/screenshotService.js';
-import { addDays, startOfDay } from '../utils/dateUtils.js';
+import { addDays, dayStart } from '../utils/dateUtils.js';
 import { toAnalysisResponse } from './analysisController.js';
 
 // Internal API for analysis-agent, protected by X-Service-Key (see authMiddleware.requireServiceKey).
@@ -51,7 +51,7 @@ const dailySchema = z.object({
 });
 
 function dayRange(date) {
-  const start = startOfDay(new Date(`${date}T00:00:00Z`));
+  const start = dayStart(date);
   return { $gte: start, $lt: addDays(start, 1) };
 }
 
@@ -91,7 +91,7 @@ export async function getDay(request, response) {
 
   const range = dayRange(date);
   const [performance, screenshots, observations] = await Promise.all([
-    Performance.findOne({ employee: employee._id, date: range.$gte }).lean(),
+    Performance.findOne({ employee: employee._id, date: range }).lean(),
     Screenshot.find({ employee: employee._id, capturedAt: range }).sort({ capturedAt: 1 }),
     CameraObservation.find({ employee: employee._id, observedAt: range }).sort({ observedAt: 1 }).lean()
   ]);
@@ -128,10 +128,9 @@ export async function upsertDailyAnalysis(request, response) {
   const input = dailySchema.parse(request.body);
   if (!(await Employee.exists({ _id: input.employeeId }))) throw new HttpError(404, 'Employee not found');
   const { employeeId, date, ...fields } = input;
-  const analysis = await DailyAnalysis.findOneAndUpdate(
-    { employee: employeeId, date: startOfDay(new Date(`${date}T00:00:00Z`)) },
-    fields,
-    { upsert: true, new: true, setDefaultsOnInsert: true }
-  );
+  const day = dayStart(date);
+  const analysis = await DailyAnalysis.findOneAndUpdate({ employee: employeeId, date: day }, fields, { upsert: true, new: true, setDefaultsOnInsert: true });
+  // One analysis per day: drop one stored for the same day under an earlier APP_TIMEZONE.
+  await DailyAnalysis.deleteMany({ employee: employeeId, date: { $gte: day, $lt: addDays(day, 1) }, _id: { $ne: analysis._id } });
   response.json({ dailyAnalysis: toAnalysisResponse(analysis) });
 }

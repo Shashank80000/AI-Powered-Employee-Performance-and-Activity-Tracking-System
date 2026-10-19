@@ -32,6 +32,16 @@ export async function findEmployeeInScope(user, employeeId) {
   return employee;
 }
 
+/**
+ * Whose data a request is about: an employee always gets their own (any employeeId is ignored);
+ * managers and admins must name someone in their scope.
+ */
+export async function employeeForRequest(user, employeeId) {
+  if (user.role === 'employee') return currentEmployee(user);
+  if (!employeeId) throw new HttpError(400, 'Choose an employee (employeeId is required)');
+  return findEmployeeInScope(user, employeeId);
+}
+
 /** The Employee profile of the signed-in employee. */
 export async function currentEmployee(user) {
   const employee = await Employee.findOne({ user: user._id });

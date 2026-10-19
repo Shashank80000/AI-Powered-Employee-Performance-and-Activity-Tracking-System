@@ -4,6 +4,7 @@ import { currentEmployee, findEmployeeInScope, visibleEmployeeIds } from '../mid
 import { HttpError } from '../middleware/errorMiddleware.js';
 import { recalculateDay } from '../services/performanceService.js';
 import { objectId } from '../utils/accountRules.js';
+import { toDateKey } from '../utils/dateUtils.js';
 
 const listSchema = z.object({
   assignedTo: z.union([z.literal('me'), objectId]).optional(),
@@ -20,6 +21,10 @@ const createSchema = z.object({
 });
 
 const managerUpdateSchema = createSchema.partial().extend({ status: z.enum(TASK_STATUSES).optional() });
+// Managers can move a task back (e.g. reopen approved work). It reaches review only by the employee
+// submitting it, and done only through an approval, so every approval is recorded.
+const MANAGER_STATUSES = ['todo', 'in-progress'];
+const STATUS_LABELS = { todo: 'To do', 'in-progress': 'In progress', review: 'In review', done: 'Done' };
 
 // Employees move their own tasks along and log time; only a manager or admin marks work done.
 const EMPLOYEE_STATUSES = ['todo', 'in-progress', 'review'];
@@ -78,6 +83,21 @@ function addEvent(task, user, kind, text) {
   task.history.push({ author: user._id, authorName: user.name, authorRole: user.role, kind, text: text || undefined });
 }
 
+/** Recalculates the daily records a task counted towards, for each employee and day given. */
+async function recalculateTaskDays(entries) {
+  const seen = new Set();
+  for (const [employee, date] of entries) {
+    if (!employee || !date) continue;
+    const key = `${employee}|${toDateKey(date)}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    await recalculateDay(employee, new Date(date));
+  }
+}
+
+/** Every day a task counts towards for its assignee: today, its due date and the day it was completed. */
+const taskDays = (assignedTo, { dueDate, completedAt }) => [[assignedTo, new Date()], [assignedTo, dueDate], [assignedTo, completedAt]];
+
 async function findTaskInScope(user, taskId) {
   const ids = await visibleEmployeeIds(user);
   const task = await Task.findOne({ _id: objectId.parse(taskId), assignedTo: { $in: ids } });
@@ -118,6 +138,7 @@ export async function createTask(request, response) {
 
 export async function updateTask(request, response) {
   const task = await findTaskInScope(request.user, request.params.id);
+  const before = { assignedTo: task.assignedTo, dueDate: task.dueDate, completedAt: task.completedAt };
 
   if (request.user.role === 'employee') {
     const { status, note, actualMinutesDelta } = employeeUpdateSchema.parse(request.body);
@@ -130,12 +151,19 @@ export async function updateTask(request, response) {
   } else {
     const changes = managerUpdateSchema.parse(request.body);
     if (changes.assignedTo) await findAssignableEmployee(request.user, changes.assignedTo);
+    if (changes.status && changes.status !== task.status) {
+      if (!MANAGER_STATUSES.includes(changes.status)) {
+        throw new HttpError(400, 'Work reaches review when the employee submits it, and is marked done when you approve it');
+      }
+      addEvent(task, request.user, 'status-changed', `Moved to ${STATUS_LABELS[changes.status]}`);
+    }
     task.set(changes);
   }
 
-  const statusChanged = task.isModified('status');
+  const countsChanged = task.isModified('status') || task.isModified('assignedTo') || task.isModified('dueDate');
   await task.save();
-  if (statusChanged) await recalculateDay(task.assignedTo, new Date());
+  // Recount the old and the new assignee, on every day the task counted (or now counts) towards.
+  if (countsChanged) await recalculateTaskDays([...taskDays(before.assignedTo, before), ...taskDays(task.assignedTo, task)]);
   await respond(response, task);
 }
 
@@ -164,5 +192,6 @@ export async function reviewTask(request, response) {
 export async function deleteTask(request, response) {
   const task = await findTaskInScope(request.user, request.params.id);
   await task.deleteOne();
+  await recalculateTaskDays(taskDays(task.assignedTo, task));
   response.status(204).end();
 }

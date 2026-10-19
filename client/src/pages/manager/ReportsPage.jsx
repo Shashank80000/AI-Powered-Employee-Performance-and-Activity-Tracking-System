@@ -8,7 +8,8 @@ import { listEmployees } from '../../services/employeeService.js';
 import { generateReport, listReports } from '../../services/reportService.js';
 
 export default function ReportsPage() {
-  const employees = useApi((signal) => listEmployees({ signal }));
+  // Reports are for people still working here (as on the Tasks page).
+  const employees = useApi(async (signal) => (await listEmployees({ signal })).filter((employee) => employee.status !== 'inactive'));
   const reports = useApi((signal) => listReports(undefined, { signal }));
 
   async function handleGenerate(employeeId, period) {
@@ -24,7 +25,14 @@ export default function ReportsPage() {
 
       <article className="panel section-gap">
         <PanelHeader title="Generate a report" />
-        {employees.data && <GenerateReportForm employees={employees.data} onGenerate={handleGenerate} />}
+        <StatusMessage
+          loading={employees.loading}
+          error={employees.error}
+          empty={employees.data?.length === 0}
+          emptyText="No employees to report on yet."
+          onRetry={employees.reload}
+        />
+        {employees.data?.length > 0 && <GenerateReportForm employees={employees.data} onGenerate={handleGenerate} />}
       </article>
 
       <StatusMessage loading={reports.loading} error={reports.error} empty={reports.data?.length === 0} emptyText="No reports yet." onRetry={reports.reload} />

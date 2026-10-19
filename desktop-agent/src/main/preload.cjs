@@ -8,6 +8,9 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('agent', {
   /** Sign in; resolves { ok, status?, error? }. */
   login: (email, password) => ipcRenderer.invoke('agent:login', { email, password }),
+  /** Replace the administrator's temporary password after the first sign-in; resolves { ok, status?, error? }. */
+  changePassword: (currentPassword, newPassword) =>
+    ipcRenderer.invoke('agent:changePassword', { currentPassword, newPassword }),
   /** Sign out and stop tracking. */
   logout: () => ipcRenderer.invoke('agent:logout'),
   /** Current status; pass { refreshTasks: true } to reload the task list from the server. */

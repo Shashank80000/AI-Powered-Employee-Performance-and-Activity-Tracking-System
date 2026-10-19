@@ -2,7 +2,7 @@ import { Performance } from '../models/Performance.js';
 import { Report } from '../models/Report.js';
 import { periodRange, toDateKey, addDays } from '../utils/dateUtils.js';
 import { requestReport } from './aiService.js';
-import { scoreRecords } from './productivityService.js';
+import { averageScore } from './productivityService.js';
 
 const DISCLAIMER = 'AI-generated from aggregated activity metrics. Review before acting on it.';
 
@@ -19,12 +19,15 @@ function toDailyMetrics(record) {
 }
 
 /** Used when the AI service is unreachable, so reports still work offline. */
+// Same score as the dashboard (average of the days with activity), so the two never disagree.
 function fallbackReport(records) {
-  const { score } = scoreRecords(records);
-  const half = Math.floor(records.length / 2);
-  const firstHalf = scoreRecords(records.slice(0, half)).score;
-  const secondHalf = scoreRecords(records.slice(half)).score;
-  const trend = secondHalf - firstHalf > 2 ? 'up' : firstHalf - secondHalf > 2 ? 'down' : 'flat';
+  const worked = records.filter((record) => record.activeSeconds + record.idleSeconds > 0);
+  const score = averageScore(worked);
+  const half = Math.floor(worked.length / 2);
+  // A trend needs at least one day in each half.
+  const firstHalf = averageScore(worked.slice(0, half));
+  const secondHalf = averageScore(worked.slice(half));
+  const trend = half === 0 ? 'flat' : secondHalf - firstHalf > 2 ? 'up' : firstHalf - secondHalf > 2 ? 'down' : 'flat';
   return {
     score,
     trend,

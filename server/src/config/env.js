@@ -13,11 +13,36 @@ const schema = z.object({
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
   // How long a sign-in lasts (zeit/ms format: '3d', '12h', '30m').
   JWT_EXPIRES_IN: z.string().regex(/^\d+\s*(ms|s|m|h|d|w|y)?$/, 'Use a duration like 3d, 12h or 30m').default('3d'),
+  // Sign-ins from the desktop agent, which keeps tracking without the person signing in again every few days.
+  // Changing or resetting the password, or deactivating the account, still ends them at once.
+  AGENT_JWT_EXPIRES_IN: z.string().regex(/^\d+\s*(ms|s|m|h|d|w|y)?$/, 'Use a duration like 30d or 12h').default('30d'),
   CLIENT_ORIGIN: z.string().default('http://localhost:5173'),
+  // The organisation's time zone: every "day" (dashboards, daily records, screenshots, analyses) runs midnight to
+  // midnight here. Set it to where people work, e.g. Asia/Kolkata. Read by utils/dateUtils.js.
+  APP_TIMEZONE: z
+    .string()
+    .default('UTC')
+    .refine((zone) => {
+      try {
+        new Intl.DateTimeFormat('en-US', { timeZone: zone });
+        return true;
+      } catch {
+        return false;
+      }
+    }, 'Use an IANA time zone name such as Asia/Kolkata or UTC'),
   // One-click "Explore as Admin / Manager / Employee" sign-in with the seeded demo accounts.
   // Never enable this on a real deployment: it signs people in without a password.
   DEMO_MODE: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
   AI_SERVICE_URL: z.string().url().default('http://localhost:8000'),
+  // AI agent (/api/agent): Claude interprets the backend's verified metrics. Without a key the agent still works,
+  // answering from fixed rules. Keep the key on the server only; it is never sent to browsers.
+  ANTHROPIC_API_KEY: z.string().min(1).optional(),
+  AGENT_MODEL: z.string().min(1).default('claude-opus-5-5'),
+  // Re-run a request on Anthropic's recommended model when the safety classifier declines it (Claude API only;
+  // set false on Bedrock, Vertex or Foundry).
+  AGENT_REFUSAL_FALLBACK: z.enum(['true', 'false']).default('true').transform((value) => value === 'true'),
+  // Requests to the agent per person per hour (each may call the model once).
+  AGENT_RATE_LIMIT_PER_HOUR: z.coerce.number().int().min(1).max(1000).default(30),
   // Shared secret for the analysis agent's internal API. Internal routes are disabled without it.
   SERVICE_API_KEY: z.string().min(32, 'SERVICE_API_KEY must be at least 32 characters').optional(),
   // Desktop agent installers offered on the website's download page (see `npm run agent:publish`).

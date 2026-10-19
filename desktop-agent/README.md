@@ -67,12 +67,12 @@ starts the trackers. If the server cannot be reached, nothing starts and the per
 | Toggle | Default | What is collected |
 | --- | --- | --- |
 | Activity time | **required** | Active/idle seconds and mouse-movement count. Without it tracking cannot run. |
-| Keyboard activity count | on | Number of key presses per snapshot (`keyboardEvents`). Off -> always `0`, hook not loaded. |
-| App names | on | Foreground app owner name + seconds (`applications[]`). Off -> tracker not started, no records. |
-| Screenshots | **off** | One JPEG of the primary screen every 5 min while active (see below). |
+| Keyboard activity count | **off** | Number of key presses per snapshot (`keyboardEvents`). Off -> always `0`, hook not loaded. |
+| App names | **off** | Foreground app owner name + seconds (`applications[]`). Off -> tracker not started, no records. |
+| Screenshots | **off** | One JPEG of the primary screen every few minutes while active (`SCREENSHOT_INTERVAL_MINUTES` on the server, 5 by default; see below). Needs the separate agreement that the manager and administrators can view them. |
 
 Choices are stored in `<userData>/consent.json` (choices only, no data):
-`{ version: 1, acceptedAt, activity, keyboard, apps, screenshots, userId }`. `userId` makes
+`{ version: 2, acceptedAt, activity, keyboard, apps, screenshots, managerViewScreenshots, userId }`. `userId` makes
 sure one account's consent is never applied to another account on the same computer.
 
 **Settings** (from the status window) shows the same toggles and permission statuses. **Save**
@@ -121,7 +121,7 @@ Server endpoints used:
 | Method | Path | Body / response |
 | --- | --- | --- |
 | `GET` | `/consent` | -> `{ consent: { activity, keyboard, apps, screenshots, acceptedAt, version }, screenshotIntervalMinutes }` |
-| `PUT` | `/consent` | `{ activity: true, keyboard, apps, screenshots, version: 1 }` -> `{ consent }` |
+| `PUT` | `/consent` | `{ activity: true, keyboard, apps, screenshots, managerViewScreenshots, version: 2 }` -> `{ consent }` |
 | `DELETE` | `/consent` | -> `204` |
 | `POST` | `/screenshots` | raw JPEG (`Content-Type: image/jpeg`, `X-Captured-At: <ISO>`, <= 2 MB) -> `201 { screenshot: { id, capturedAt } }`; `403` if consent is off |
 | `DELETE` | `/screenshots/:id` | -> `204` |
@@ -202,13 +202,18 @@ src/services/   apiService (HTTP client), activityService (buffer + upload),
 src/utils/      pure helpers
 ```
 
-## Starting and pausing from the website
+## First sign-in, starting and pausing
+
+The employee signs in with the work email and temporary password the administrator created. The server
+accepts nothing else until they choose their own password, so the agent shows **Choose your own password**
+first. The new password works in the agent and on the website, and every older session ends. Then the
+person chooses what to share, and tracking starts. No website sign-in is needed.
 
 The agent records only while the employee's tracking state on the server is **active**:
 
-- **Signing in on the WorkPlus website starts tracking**; signing out there stops it. Until then the status window says "Waiting for you to sign in on the WorkPlus website".
+- **Signing in to the agent (after agreeing) or on the WorkPlus website starts tracking.** Signing out of the website stops it; **Start tracking** in the agent (window or tray) starts it again.
 - **Pause / Resume** works in the website's top bar and in this agent (window or tray). Each side shows the other's change within about 15 seconds.
-- Resuming from the agent isn't possible while the employee is signed out of the website.
+- An agent sign-in lasts 30 days (`AGENT_JWT_EXPIRES_IN` on the server). Changing or resetting the password, or deactivating the account, signs the agent out at once.
 - The agent checks the state every 15 seconds (`GET /tracking`). If the server can't be reached, it keeps doing what it was doing.
 
 ## Operating system support

@@ -36,8 +36,8 @@ export function calculateProductivity(metrics) {
   return { score: Math.round(score * 10) / 10, breakdown };
 }
 
-/** Percentage change between two values, rounded to one decimal. */
+/** Percentage change between two values, rounded to one decimal; null when there is nothing earlier to compare with. */
 export function percentChange(current, previous) {
-  if (!previous) return current ? 100 : 0;
+  if (!previous) return current ? null : 0;
   return Math.round(((current - previous) / previous) * 1000) / 10;
 }

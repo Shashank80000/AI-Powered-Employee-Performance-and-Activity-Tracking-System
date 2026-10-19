@@ -51,6 +51,20 @@ async function login(email, password) {
   return data;
 }
 
+/** First sign-in with the administrator's temporary password: nothing else works until it is replaced. */
+async function firstSignIn(email, temporary, chosen) {
+  const session = await login(email, temporary);
+  assert.equal(session.user.mustChangePassword, true);
+  const refused = await api(session.token, 'GET', '/tasks');
+  assert.equal(refused.status, 403, 'the server enforces the password change, not only the website');
+  assert.equal(refused.data.error.code, 'PASSWORD_CHANGE_REQUIRED');
+  assert.equal((await api(session.token, 'GET', '/auth/me')).status, 200);
+  const changed = await api(session.token, 'POST', '/auth/password', { currentPassword: temporary, newPassword: chosen });
+  assert.equal(changed.status, 200);
+  assert.equal((await api(changed.data.token, 'GET', '/tasks')).status, 200, 'the returned token continues the session');
+  return changed.data.token;
+}
+
 test('admin, manager and employee workflow with role checks', { skip }, async (t) => {
   const admin = (await login('admin@test.dev', 'Admin123!')).token;
   let mina;
@@ -104,10 +118,17 @@ test('admin, manager and employee workflow with role checks', { skip }, async (t
     assert.equal(session.user.mustChangePassword, true);
     assert.equal((await api(session.token, 'POST', '/auth/password', { currentPassword: 'wrong', newPassword: 'Mina2026pass' })).status, 400);
     assert.equal((await api(session.token, 'POST', '/auth/password', { currentPassword: 'Welcome123', newPassword: 'Welcome123' })).status, 400);
+    const refused = await api(session.token, 'GET', '/employees');
+    assert.equal(refused.status, 403);
+    assert.equal(refused.data.error.code, 'PASSWORD_CHANGE_REQUIRED');
     const changed = await api(session.token, 'POST', '/auth/password', { currentPassword: 'Welcome123', newPassword: 'Mina2026pass', role: 'admin' });
     assert.equal(changed.status, 200);
     assert.equal(changed.data.user.mustChangePassword, false);
     assert.equal(changed.data.user.role, 'manager', 'the role cannot be changed through this request');
+    const ended = await api(session.token, 'GET', '/auth/me');
+    assert.equal(ended.status, 401, 'sessions from before the password change end');
+    assert.equal(ended.data.error.code, 'SESSION_ENDED');
+    assert.equal((await api(changed.data.token, 'GET', '/employees')).status, 200);
     await assert.rejects(login('mina@test.dev', 'Welcome123'));
   });
 
@@ -141,8 +162,7 @@ test('admin, manager and employee workflow with role checks', { skip }, async (t
   });
 
   await t.test('an employee sees only their own profile and tasks', async () => {
-    const session = await login('eve@test.dev', 'Welcome123');
-    const employee = session.token;
+    const employee = await firstSignIn('eve@test.dev', 'Welcome123', 'Eve2026pass');
     const me = await api(employee, 'GET', '/employees/me');
     assert.equal(me.data.employee.managerName, 'Mina Manager');
     assert.equal((await api(employee, 'GET', '/employees')).status, 403);
@@ -166,14 +186,14 @@ test('admin, manager and employee workflow with role checks', { skip }, async (t
     assert.equal(submitted.data.task.status, 'review');
     assert.deepEqual(submitted.data.task.history.map((event) => [event.kind, event.text, event.authorName]), [['submitted', 'Draft is in the shared folder', 'Eve Employee']]);
 
-    const other = (await login('sam@test.dev', 'Welcome123')).token;
+    const other = await firstSignIn('sam@test.dev', 'Welcome123', 'Sam2026pass');
     assert.equal((await api(other, 'PATCH', `/tasks/${task.id}`, { status: 'todo' })).status, 404);
     assert.equal((await api(other, 'POST', `/tasks/${task.id}/comments`, { text: 'hi' })).status, 404);
   });
 
   await t.test('the manager sends work back, then approves it', async () => {
     const manager = await minaToken();
-    const employee = (await login('eve@test.dev', 'Welcome123')).token;
+    const employee = (await login('eve@test.dev', 'Eve2026pass')).token;
     const noReason = await api(manager, 'POST', `/tasks/${task.id}/review`, { decision: 'changes' });
     assert.equal(noReason.status, 400);
     assert.equal(noReason.message, 'Explain what needs to change, so the employee knows what to do');
@@ -193,6 +213,37 @@ test('admin, manager and employee workflow with role checks', { skip }, async (t
     const reopen = await api(employee, 'PATCH', `/tasks/${task.id}`, { status: 'in-progress' });
     assert.equal(reopen.status, 409);
     assert.equal((await api(employee, 'PATCH', `/tasks/${task.id}`, { actualMinutesDelta: 5 })).status, 200, 'the desktop agent can still log time');
+
+    const reopened = await api(manager, 'PATCH', `/tasks/${task.id}`, { status: 'in-progress' });
+    assert.equal(reopened.status, 200, 'a manager can reopen approved work');
+    assert.deepEqual(reopened.data.task.history.at(-1).kind, 'status-changed');
+    assert.equal(reopened.data.task.completedAt, undefined);
+    const skipReview = await api(manager, 'PATCH', `/tasks/${task.id}`, { status: 'done' });
+    assert.equal(skipReview.status, 400, 'done only through an approval');
+    assert.equal((await api(manager, 'PATCH', `/tasks/${task.id}`, { status: 'review' })).status, 400, 'review only through a submission');
+    await api(employee, 'PATCH', `/tasks/${task.id}`, { status: 'review' });
+    assert.equal((await api(manager, 'POST', `/tasks/${task.id}/review`, { decision: 'approve' })).data.task.status, 'done');
+  });
+
+  await t.test('the desktop agent uploads activity that counts once, for the signed-in employee only', async () => {
+    const employee = (await login('eve@test.dev', 'Eve2026pass')).token;
+    assert.equal((await api(employee, 'PUT', '/consent', { activity: true, keyboard: false, apps: true, screenshots: false, version: 2 })).status, 200);
+    assert.equal((await api(employee, 'PUT', '/tracking', { state: 'active', source: 'agent' })).status, 200);
+    const capturedAt = new Date(Date.now() - 60_000).toISOString();
+    const batch = {
+      snapshots: [{ capturedAt, intervalSeconds: 60, activeSeconds: 50, idleSeconds: 10, taskId: task.id }],
+      applications: [{ application: 'Visual Studio Code', durationSeconds: 50, capturedAt }]
+    };
+    assert.equal((await api(employee, 'POST', '/activity/snapshots', batch)).data.stored, 1);
+    assert.equal((await api(employee, 'POST', '/activity/snapshots', batch)).data.stored, 0, 'a re-sent batch is not counted twice');
+    const { summary } = (await api(employee, 'GET', '/activity/summary?period=day')).data;
+    assert.equal(summary.activeSeconds, 50);
+    assert.deepEqual(summary.applications.map((app) => [app.application, app.durationSeconds]), [['Visual Studio Code', 50]]);
+
+    const manager = await minaToken();
+    assert.equal((await api(manager, 'GET', '/activity/summary?period=day')).message, 'Choose an employee (employeeId is required)');
+    assert.equal((await api(manager, 'GET', `/activity/summary?period=day&employeeId=${eve.id}`)).data.summary.activeSeconds, 50, 'the manager sees the same numbers');
+    assert.equal((await api(admin, 'GET', '/analysis/daily')).status, 400);
   });
 
   await t.test('admin manages access: reassign, deactivate, reset password, reactivate', async () => {
@@ -204,12 +255,14 @@ test('admin, manager and employee workflow with role checks', { skip }, async (t
     assert.equal((await api(null, 'POST', '/auth/login', { email: 'mina@test.dev', password: 'Mina2026pass' })).status, 401);
     assert.equal((await api(admin, 'POST', '/employees', { name: 'Late', email: 'late@test.dev', password: 'Welcome123', employeeCode: 'E-9', manager: mina.id })).status, 400);
 
-    const omarToken = (await login('omar@test.dev', 'Welcome123')).token;
+    const omarToken = await firstSignIn('omar@test.dev', 'Welcome123', 'Omar2026pass');
     assert.deepEqual((await api(omarToken, 'GET', '/tasks')).data.tasks.map((item) => item.title), ['Write the onboarding guide'], 'the new manager sees the reassigned work');
 
+    const beforeReset = (await login('eve@test.dev', 'Eve2026pass')).token;
     assert.equal((await api(admin, 'POST', `/users/${eve.userId}/password`, { password: 'short' })).status, 400);
     assert.equal((await api(admin, 'POST', `/users/${eve.userId}/password`, { password: 'Reset2026x' })).status, 204);
-    await assert.rejects(login('eve@test.dev', 'Welcome123'));
+    assert.equal((await api(beforeReset, 'GET', '/auth/me')).status, 401, 'a reset signs out every existing session, including a desktop agent');
+    await assert.rejects(login('eve@test.dev', 'Eve2026pass'));
     const reset = await login('eve@test.dev', 'Reset2026x');
     assert.equal(reset.user.mustChangePassword, true);
     const adminId = (await api(admin, 'GET', '/auth/me')).data.user.id;
@@ -220,7 +273,32 @@ test('admin, manager and employee workflow with role checks', { skip }, async (t
     assert.equal((await api(omarToken, 'POST', '/tasks', { title: 'For a deactivated person', assignedTo: eve.id })).status, 400);
     assert.equal((await api(admin, 'PATCH', `/employees/${eve.id}`, { department: 'X' })).status, 409);
     assert.equal((await api(admin, 'POST', `/employees/${eve.id}/reactivate`)).data.employee.status, 'active');
+    assert.equal((await api(reset.token, 'GET', '/auth/me')).status, 401, 'reactivating does not bring back old sessions');
     await login('eve@test.dev', 'Reset2026x');
+
+    // Someone reactivated after their manager left is unassigned, and can still be edited.
+    assert.equal((await api(admin, 'PATCH', `/employees/${eve.id}`, { manager: mina.id })).status, 400);
+    const pia = (await api(admin, 'POST', '/users/managers', { name: 'Pia Manager', email: 'pia@test.dev', password: 'Welcome123' })).data.manager;
+    assert.equal((await api(admin, 'PATCH', `/employees/${eve.id}`, { manager: pia.id })).status, 200);
+    assert.equal((await api(admin, 'DELETE', `/employees/${eve.id}`)).status, 204);
+    assert.equal((await api(admin, 'PATCH', `/users/managers/${pia.id}`, { isActive: false })).status, 200);
+    assert.equal((await api(admin, 'POST', `/employees/${eve.id}/reactivate`)).data.employee.manager, null);
+    assert.equal((await api(admin, 'PATCH', `/employees/${eve.id}`, { designation: 'Writer' })).status, 200);
+  });
+
+  await t.test('the desktop agent gets a longer sign-in than the website', async () => {
+    const lifetime = (token) => {
+      const { iat, exp } = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString());
+      return exp - iat;
+    };
+    const web = await login('sam@test.dev', 'Sam2026pass');
+    const agent = await fetch(`${base}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Client': 'agent' },
+      body: JSON.stringify({ email: ' Sam@Test.dev ', password: 'Sam2026pass' })
+    }).then((response) => response.json());
+    assert.equal(lifetime(agent.token), 30 * 86400, 'AGENT_JWT_EXPIRES_IN defaults to 30 days');
+    assert.ok(lifetime(web.token) < lifetime(agent.token));
   });
 
   await t.test('requests without a valid session are rejected', async () => {

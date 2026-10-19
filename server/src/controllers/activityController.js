@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { Activity } from '../models/Activity.js';
-import { currentEmployee, findEmployeeInScope } from '../middleware/roleMiddleware.js';
+import { currentEmployee, employeeForRequest } from '../middleware/roleMiddleware.js';
 import { HttpError } from '../middleware/errorMiddleware.js';
 import { capturedWhileNotTracking } from './trackingController.js';
 import { getActivitySummary, recordSnapshots } from '../services/activityService.js';
@@ -39,10 +39,6 @@ const querySchema = z.object({
   period: z.enum(['day', 'week', 'month']).default('week')
 });
 
-async function resolveEmployee(user, employeeId) {
-  return user.role === 'employee' || !employeeId ? currentEmployee(user) : findEmployeeInScope(user, employeeId);
-}
-
 /** Desktop agent upload endpoint (employee accounts only). */
 export async function uploadSnapshots(request, response) {
   const batch = batchSchema.parse(request.body);
@@ -64,7 +60,7 @@ export async function uploadSnapshots(request, response) {
 
 export async function listActivity(request, response) {
   const { employeeId, period } = querySchema.parse(request.query);
-  const employee = await resolveEmployee(request.user, employeeId);
+  const employee = await employeeForRequest(request.user, employeeId);
   const { start, end } = periodRange(period);
   const activity = await Activity.find({ employee: employee._id, capturedAt: { $gte: start, $lt: end } })
     .sort({ capturedAt: -1 })
@@ -85,6 +81,6 @@ export async function listActivity(request, response) {
 
 export async function activitySummary(request, response) {
   const { employeeId, period } = querySchema.parse(request.query);
-  const employee = await resolveEmployee(request.user, employeeId);
+  const employee = await employeeForRequest(request.user, employeeId);
   response.json({ summary: await getActivitySummary(employee._id, periodRange(period)) });
 }
