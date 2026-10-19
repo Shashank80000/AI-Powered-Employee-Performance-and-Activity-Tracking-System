@@ -67,10 +67,23 @@ export function greeting(date = new Date()) {
   return 'Good evening';
 }
 
-/** Today's date as YYYY-MM-DD in local time, for <input type="date">. */
+// The organisation's time zone from the server (APP_TIMEZONE). Days in the API run midnight to midnight there.
+let appTimeZone;
+
+/** Called at sign-in with the server's time zone; undefined falls back to this browser's. */
+export function setAppTimeZone(timeZone) {
+  appTimeZone = timeZone || undefined;
+}
+
+/** Today's date as YYYY-MM-DD in the organisation's time zone, for <input type="date"> and API `date` filters. */
 export function todayKey(date = new Date()) {
-  const offset = date.getTimezoneOffset() * 60000;
-  return new Date(date.getTime() - offset).toISOString().slice(0, 10);
+  try {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: appTimeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
+  } catch {
+    // Unknown zone in this browser: use local time.
+    const offset = date.getTimezoneOffset() * 60000;
+    return new Date(date.getTime() - offset).toISOString().slice(0, 10);
+  }
 }
 
 export function formatTime(value) {

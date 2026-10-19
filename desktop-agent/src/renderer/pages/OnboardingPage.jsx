@@ -13,8 +13,8 @@ export default function OnboardingPage({ status, onStatus }) {
   const caps = status.osSupport;
   const can = (key) => caps?.[key]?.supported !== false;
   const [choices, setChoices] = useState(() => ({
-    keyboard: (status.consent?.keyboard ?? true) && can('keyboard'),
-    apps: (status.consent?.apps ?? true) && can('apps'),
+    keyboard: (status.consent?.keyboard ?? false) && can('keyboard'),
+    apps: (status.consent?.apps ?? false) && can('apps'),
     screenshots: (status.consent?.screenshots ?? false) && can('screenshots'),
     managerViewScreenshots: false, // always asked explicitly
   }));

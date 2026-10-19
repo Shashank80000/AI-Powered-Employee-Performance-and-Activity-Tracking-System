@@ -3,10 +3,12 @@ import { ZodError } from 'zod';
 import { env } from '../config/env.js';
 
 export class HttpError extends Error {
-  constructor(status, message, details) {
+  /** `errorCode` is a stable string clients can act on (e.g. PASSWORD_CHANGE_REQUIRED). */
+  constructor(status, message, details, errorCode) {
     super(message);
     this.status = status;
     this.details = details;
+    this.errorCode = errorCode;
   }
 }
 
@@ -50,5 +52,5 @@ export function errorHandler(error, _request, response, _next) {
     if (env.NODE_ENV === 'production') message = 'Internal server error';
   }
 
-  response.status(status).json({ error: { message, ...(details && { details }) } });
+  response.status(status).json({ error: { message, ...(error.errorCode && { code: error.errorCode }), ...(details && { details }) } });
 }

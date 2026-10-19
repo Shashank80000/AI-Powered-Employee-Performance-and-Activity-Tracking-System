@@ -10,9 +10,9 @@ import { FIRST_LAUNCH, PLATFORM_LABELS } from '../../utils/platform.js';
 
 const steps = [
   { icon: Download, title: 'Download and install', text: 'Open the installer and read the monitoring notice. Installing means you agree to it.' },
-  { icon: LogIn, title: 'Sign in', text: 'Use the same work email and password as this website. The agent already knows which server to use.' },
+  { icon: LogIn, title: 'Sign in', text: 'Use the work email and password from your administrator. The first time, you choose your own password. The agent already knows which server to use.' },
   { icon: SlidersHorizontal, title: 'Choose what to share', text: 'Activity time is required. Keyboard counts, app names and screenshots are optional and off until you turn them on.' },
-  { icon: LayoutDashboard, title: 'See it on your dashboard', text: 'The agent sends activity every minute. It appears on your dashboard here and on your manager’s.' }
+  { icon: LayoutDashboard, title: 'See it on your dashboard', text: 'Tracking starts once you choose what to share. The agent sends your activity every few minutes, and it appears on your dashboard here and on your manager’s.' }
 ];
 
 

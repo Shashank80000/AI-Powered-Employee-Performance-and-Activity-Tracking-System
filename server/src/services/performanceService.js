@@ -39,11 +39,14 @@ export async function recalculateDay(employeeId, date) {
   };
   const { score } = calculateProductivity(metrics);
 
-  return Performance.findOneAndUpdate(
+  const record = await Performance.findOneAndUpdate(
     { employee: employeeId, date: start },
     { ...metrics, productivityScore: score },
     { upsert: true, new: true, setDefaultsOnInsert: true }
   );
+  // One record per day: drop one stored for the same day under an earlier APP_TIMEZONE, so it isn't counted twice.
+  await Performance.deleteMany({ employee: employeeId, date: inDay, _id: { $ne: record._id } });
+  return record;
 }
 
 function initials(name) {
@@ -73,7 +76,8 @@ function activeEmployeeCount(records) {
 export async function getDashboard(user, period = 'week') {
   const range = periodRange(period);
   const previous = previousRange(range);
-  const employees = await Employee.find({ ...employeeScope(user), status: 'active' }).populate('user', 'name').lean();
+  // People on leave still count: their earlier work in the period belongs in the totals. Deactivated people don't.
+  const employees = await Employee.find({ ...employeeScope(user), status: { $ne: 'inactive' } }).populate('user', 'name').lean();
   const employeeIds = employees.map(({ _id }) => _id);
 
   const [records, previousRecords, recentTasks, [peak]] = await Promise.all([

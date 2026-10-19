@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 export const TASK_STATUSES = ['todo', 'in-progress', 'review', 'done'];
 export const TASK_PRIORITIES = ['low', 'medium', 'high'];
 // What a history entry records: a plain comment, or a step in the review flow.
-export const TASK_EVENT_KINDS = ['comment', 'submitted', 'approved', 'changes-requested'];
+export const TASK_EVENT_KINDS = ['comment', 'submitted', 'approved', 'changes-requested', 'status-changed'];
 
 const taskEventSchema = new mongoose.Schema(
   {

@@ -7,9 +7,10 @@ export async function login(email, password) {
   return user;
 }
 
-/** Changes the signed-in person's password and returns the updated user. */
+/** Changes the signed-in person's password and returns the updated user. Other sessions end; this one gets a new token. */
 export async function changePassword(currentPassword, newPassword) {
-  const { user } = await request('/auth/password', { method: 'POST', body: { currentPassword, newPassword } });
+  const { token, user } = await request('/auth/password', { method: 'POST', body: { currentPassword, newPassword } });
+  tokenStore.set(token);
   return user;
 }
 
@@ -58,6 +59,11 @@ export async function demoLogin(role) {
   tokenStore.set(token);
   setDemoFlag(true);
   return user;
+}
+
+/** Records the sign-out on the server. Signing out works locally even when this fails (e.g. offline). */
+export async function endSession() {
+  if (tokenStore.get()) await request('/auth/logout', { method: 'POST' }).catch(() => {});
 }
 
 export function logout() {

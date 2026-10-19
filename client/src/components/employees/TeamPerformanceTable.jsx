@@ -7,7 +7,7 @@ const STATUS = {
 };
 
 export default function TeamPerformanceTable({ members }) {
-  if (members.length === 0) return <p className="muted">No employees are assigned to you yet.</p>;
+  if (members.length === 0) return <p className="muted">No employees to show yet.</p>;
   return (
     <div className="table-wrap">
       <table className="responsive-table">

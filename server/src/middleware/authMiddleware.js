@@ -4,9 +4,19 @@ import { env } from '../config/env.js';
 import { User } from '../models/User.js';
 import { HttpError } from './errorMiddleware.js';
 
-export function signToken(user) {
-  return jwt.sign({ sub: user._id.toString(), role: user.role }, env.JWT_SECRET, { expiresIn: env.JWT_EXPIRES_IN });
+/** The desktop agent identifies itself with this header; its sign-ins last longer (AGENT_JWT_EXPIRES_IN). */
+export const isAgentRequest = (request) => request.get('X-Client') === 'agent';
+
+/** `sessionId` links the token to its WorkSession, so signing out records the sign-out time. */
+export function signToken(user, { agent = false, sessionId } = {}) {
+  const payload = { sub: user._id.toString(), role: user.role, ver: user.tokenVersion ?? 0, ...(sessionId && { sid: String(sessionId) }) };
+  return jwt.sign(payload, env.JWT_SECRET, {
+    expiresIn: agent ? env.AGENT_JWT_EXPIRES_IN : env.JWT_EXPIRES_IN
+  });
 }
+
+// What someone still on an administrator's temporary password may do: see who they are and choose their own password.
+const ALLOWED_WITH_TEMPORARY_PASSWORD = new Set(['GET /api/auth/me', 'POST /api/auth/password', 'POST /api/auth/logout']);
 
 /** Requires a valid `Authorization: Bearer <token>` header and attaches `request.user`. */
 export async function protect(request, _response, next) {
@@ -23,8 +33,20 @@ export async function protect(request, _response, next) {
   // Re-read the user so deactivated accounts and role changes take effect immediately.
   const user = await User.findById(payload.sub);
   if (!user || !user.isActive) throw new HttpError(401, 'Account is not active');
+  // Tokens from before a password change or reset, or a deactivation, no longer count.
+  if ((payload.ver ?? 0) !== (user.tokenVersion ?? 0)) {
+    throw new HttpError(401, 'Your password or account was changed. Sign in again.', undefined, 'SESSION_ENDED');
+  }
+
+  // Enforced here, not only on the website, so the desktop agent and direct API calls follow the same rule.
+  const route = `${request.method} ${request.baseUrl}${request.path}`.replace(/\/+$/, '');
+  if (user.mustChangePassword && !ALLOWED_WITH_TEMPORARY_PASSWORD.has(route)) {
+    throw new HttpError(403, 'Choose your own password before continuing.', undefined, 'PASSWORD_CHANGE_REQUIRED');
+  }
 
   request.user = user;
+  // Tokens issued before sessions were recorded have no session id.
+  request.sessionId = payload.sid;
   next();
 }
 

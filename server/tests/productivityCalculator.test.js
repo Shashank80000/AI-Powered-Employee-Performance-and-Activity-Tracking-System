@@ -27,7 +27,7 @@ test('weights are applied to each factor', () => {
 
 test('percentChange handles zero and negative changes', () => {
   assert.equal(percentChange(0, 0), 0);
-  assert.equal(percentChange(5, 0), 100);
+  assert.equal(percentChange(5, 0), null, 'no earlier data: no made-up +100%');
   assert.equal(percentChange(90, 100), -10);
 });
 

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import PrivacyNotice from '../components/PrivacyNotice.jsx';
 
-/** Employee sign-in. Tracking starts only after a successful employee login. */
+/** Employee sign-in with the account the administrator created. Tracking starts once the person has agreed. */
 export default function LoginPage({ status, onStatus }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -26,7 +26,10 @@ export default function LoginPage({ status, onStatus }) {
     <>
       <form className="card" onSubmit={submit}>
         <h1>Sign in</h1>
-        <p className="muted small">Use your employee account. Tracking starts after you sign in.</p>
+        <p className="muted small">
+          Use the work email and password your administrator gave you. The first time, you choose your own password
+          and what to share; tracking starts after that.
+        </p>
         {status.authError && <p className="warning">{status.authError}</p>}
         <label htmlFor="email">Email</label>
         <input

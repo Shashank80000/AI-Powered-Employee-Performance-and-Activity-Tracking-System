@@ -35,6 +35,7 @@ export default function DailyAnalysisPage({ personal = false }) {
                   {employees.data?.map((employee) => (
                     <option key={employee.id} value={employee.id}>
                       {employee.name}
+                      {employee.status === 'inactive' ? ' (deactivated)' : ''}
                     </option>
                   ))}
                 </select>
@@ -50,13 +51,24 @@ export default function DailyAnalysisPage({ personal = false }) {
         Written once a day by the analysis agent, for people who chose to share screenshots.
       </PageHeading>
 
-      <StatusMessage
-        loading={analysis.loading}
-        error={analysis.error}
-        empty={!analysis.loading && !analysis.data}
-        emptyText="No analysis for this day yet. The analysis agent runs at the end of each day."
-        onRetry={analysis.reload}
-      />
+      {!personal && (
+        <StatusMessage
+          loading={employees.loading}
+          error={employees.error}
+          empty={employees.data?.length === 0}
+          emptyText="No employees to show yet."
+          onRetry={employees.reload}
+        />
+      )}
+      {ready && (
+        <StatusMessage
+          loading={analysis.loading}
+          error={analysis.error}
+          empty={!analysis.loading && !analysis.data}
+          emptyText="No analysis for this day yet. The analysis agent runs at the end of each day."
+          onRetry={analysis.reload}
+        />
+      )}
       {analysis.data && <DailyAnalysisView analysis={analysis.data} />}
       {!personal && employeeId && <TeamScreenshots employeeId={employeeId} date={date} />}
     </>

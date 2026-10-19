@@ -20,11 +20,14 @@ export default function ManagerDashboard({ basePath = '/manager', intro }) {
         title={`${greeting()}, ${user.name.split(' ')[0]}`}
         actions={<PeriodSelect value={period} onChange={setPeriod} />}
       >
-        {data && (
-          <>
-            Average productivity is <strong>{formatChange(change)}</strong> compared with the previous period.
-          </>
-        )}
+        {data &&
+          (change === null ? (
+            'There is no data from the previous period to compare with yet.'
+          ) : (
+            <>
+              Average productivity is <strong>{formatChange(change)}</strong> compared with the previous period.
+            </>
+          ))}
       </PageHeading>
       {intro}
       <WorkSummary basePath={basePath} />

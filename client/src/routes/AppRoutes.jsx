@@ -5,6 +5,7 @@ import AdminLayout from '../layouts/AdminLayout.jsx';
 import EmployeeLayout from '../layouts/EmployeeLayout.jsx';
 import ManagerLayout from '../layouts/ManagerLayout.jsx';
 import AccountPage from '../pages/account/AccountPage.jsx';
+import AssistantPage from '../pages/agent/AssistantPage.jsx';
 import AdminDashboard from '../pages/admin/AdminDashboard.jsx';
 import EmployeesPage from '../pages/admin/EmployeesPage.jsx';
 import ManagersPage from '../pages/admin/ManagersPage.jsx';
@@ -48,6 +49,7 @@ export default function AppRoutes() {
           <Route path="tasks" element={<TasksPage />} />
           <Route path="reports" element={<ReportsPage />} />
           <Route path="analysis" element={<DailyAnalysisPage />} />
+          <Route path="assistant" element={<AssistantPage />} />
           <Route path="help" element={<HelpPage />} />
           <Route path="account" element={<AccountPage />} />
         </Route>
@@ -60,6 +62,7 @@ export default function AppRoutes() {
           <Route path="tasks" element={<TasksPage />} />
           <Route path="reports" element={<ReportsPage />} />
           <Route path="analysis" element={<DailyAnalysisPage />} />
+          <Route path="assistant" element={<AssistantPage />} />
           <Route path="help" element={<HelpPage />} />
           <Route path="account" element={<AccountPage />} />
         </Route>
@@ -71,6 +74,7 @@ export default function AppRoutes() {
           <Route path="tasks" element={<MyTasksPage />} />
           <Route path="activity" element={<MyActivityPage />} />
           <Route path="analysis" element={<DailyAnalysisPage personal />} />
+          <Route path="assistant" element={<AssistantPage />} />
           <Route path="screenshots" element={<MyScreenshotsPage />} />
           <Route path="help" element={<HelpPage />} />
           <Route path="account" element={<AccountPage />} />

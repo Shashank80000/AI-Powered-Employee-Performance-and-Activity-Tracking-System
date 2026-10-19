@@ -41,7 +41,8 @@ const employeeSchema = new mongoose.Schema(
       withdrawnAt: Date
     },
     // Start/pause control shared by the website and the desktop agent.
-    // 'stopped' until the employee signs in on the website; 'paused' by either side.
+    // 'stopped' until the employee signs in (desktop agent or website), and after signing out of the website
+    // or being deactivated; 'paused' by either side.
     tracking: {
       state: { type: String, enum: ['stopped', 'active', 'paused'], default: 'stopped' },
       changedAt: { type: Date, default: Date.now },

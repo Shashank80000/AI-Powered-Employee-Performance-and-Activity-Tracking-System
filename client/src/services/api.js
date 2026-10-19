@@ -5,10 +5,12 @@ export const API_BASE_URL = new URL(BASE_URL, window.location.origin).toString()
 const TOKEN_KEY = 'workplus.token';
 
 export class ApiError extends Error {
-  constructor(status, message, details) {
+  constructor(status, message, details, code) {
     super(message);
     this.status = status;
     this.details = details;
+    // Stable reason from the server, e.g. PASSWORD_CHANGE_REQUIRED or SESSION_ENDED.
+    this.code = code;
   }
 }
 
@@ -69,7 +71,7 @@ export async function request(path, { method = 'GET', body, query, signal } = {}
 
   if (!response.ok) {
     if (response.status === 401 && token) window.dispatchEvent(new Event('workplus:unauthorized'));
-    throw new ApiError(response.status, data?.error?.message ?? `Request failed (${response.status})`, data?.error?.details);
+    throw new ApiError(response.status, data?.error?.message ?? `Request failed (${response.status})`, data?.error?.details, data?.error?.code);
   }
   return data;
 }

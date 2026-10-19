@@ -4,6 +4,7 @@ import mongoose from 'mongoose';
 import { env } from './config/env.js';
 import { errorHandler, notFound } from './middleware/errorMiddleware.js';
 import activityRoutes from './routes/activityRoutes.js';
+import agentRoutes from './routes/agentRoutes.js';
 import analysisRoutes from './routes/analysisRoutes.js';
 import authRoutes from './routes/authRoutes.js';
 import cameraRoutes from './routes/cameraRoutes.js';
@@ -51,6 +52,7 @@ export function createApp() {
   app.use('/api/screenshots', screenshotRoutes);
   app.use('/api/analysis', analysisRoutes);
   app.use('/api/camera', cameraRoutes);
+  app.use('/api/agent', agentRoutes);
   app.use('/api/internal', internalRoutes);
 
   app.use(notFound);

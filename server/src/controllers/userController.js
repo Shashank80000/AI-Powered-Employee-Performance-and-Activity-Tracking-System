@@ -51,6 +51,7 @@ export async function updateManager(request, response) {
     }
   }
   manager.set(changes);
+  if (changes.isActive === false) manager.endSessions();
   await manager.save();
   response.json({ manager: await toManagerResponse(manager) });
 }
@@ -64,6 +65,8 @@ export async function resetPassword(request, response) {
 
   user.passwordHash = await bcrypt.hash(password, 12);
   user.mustChangePassword = true;
+  // Whoever was signed in with the old password (including a desktop agent) is signed out.
+  user.endSessions();
   await user.save();
   response.status(204).end();
 }

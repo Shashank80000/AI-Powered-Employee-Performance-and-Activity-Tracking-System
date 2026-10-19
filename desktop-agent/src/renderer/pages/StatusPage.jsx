@@ -40,9 +40,8 @@ export default function StatusPage({ status, onStatus, onOpenSettings }) {
   }
 
   const paused = tracking === 'paused';
-  // Tracking starts when the employee signs in on the website and stops when they sign out there.
-  const webState = status.webControl?.state ?? 'stopped';
-  const waitingForWeb = webState === 'stopped';
+  // Stopped: signed out of the website (or never started). Start here, or sign in on the website.
+  const stopped = (status.webControl?.state ?? 'stopped') === 'stopped';
 
   return (
     <>
@@ -75,11 +74,15 @@ export default function StatusPage({ status, onStatus, onOpenSettings }) {
           </div>
         </div>
 
-        {waitingForWeb ? (
-          <p className="callout">
-            Waiting for you to sign in on the WorkPlus website. Tracking starts when you sign in there and stops when
-            you sign out.
-          </p>
+        {stopped ? (
+          <>
+            <button type="button" className="primary" disabled={busy} onClick={() => call(() => window.agent.resume())}>
+              Start tracking
+            </button>
+            <p className="muted small">
+              Tracking is off. It stops when you sign out of the WorkPlus website; start it here or by signing in there.
+            </p>
+          </>
         ) : (
           <button
             type="button"

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { Employee } from '../models/Employee.js';
+import { isAgentRequest as isAgent } from '../middleware/authMiddleware.js';
 import { currentEmployee } from '../middleware/roleMiddleware.js';
 
 // The agent counts as connected if it checked in within this window (it polls every 15 s).
@@ -9,8 +10,6 @@ const updateSchema = z.object({
   state: z.enum(['active', 'paused', 'stopped']),
   source: z.enum(['web', 'agent'])
 });
-
-const isAgent = (request) => request.get('X-Client') === 'agent';
 
 export function toTrackingResponse(employee, now = new Date()) {
   const lastSeen = employee.agentLastSeenAt;

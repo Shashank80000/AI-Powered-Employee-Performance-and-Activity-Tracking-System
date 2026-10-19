@@ -13,10 +13,15 @@ import { Report } from '../models/Report.js';
 import { Screenshot } from '../models/Screenshot.js';
 import { Task } from '../models/Task.js';
 import { User } from '../models/User.js';
+import { WorkSession } from '../models/WorkSession.js';
 import { recalculateDay } from '../services/performanceService.js';
 import { categorizeApplication } from '../services/productivityService.js';
 import { summarizeCameraDay } from '../utils/cameraSummary.js';
-import { addDays, startOfDay } from '../utils/dateUtils.js';
+import { addDays, startOfDay, weekday } from '../utils/dateUtils.js';
+
+const HOUR_MS = 3600 * 1000;
+/** `hour`:`minute` on the day starting at `midnight` (in APP_TIMEZONE). */
+const at = (midnight, hour, minute = 0) => new Date(midnight.getTime() + hour * HOUR_MS + minute * 60 * 1000);
 
 const DEMO_PASSWORD = 'Password@123';
 const DAYS = 14;
@@ -79,16 +84,17 @@ async function seedSampleAnalyses(employee, person, today) {
   let created = 0;
   for (let back = 0; created < 5 && back < 10; back += 1) {
     const date = addDays(today, -back);
-    if ([0, 6].includes(date.getUTCDay())) continue;
+    if ([0, 6].includes(weekday(date))) continue;
     const timeline = [];
     for (const hour of WORK_HOURS) {
       for (let minute = 0; minute < 60; minute += 5) {
         const category = sampleCategory(person.focus);
-        const capturedAt = new Date(date);
-        capturedAt.setUTCHours(hour, minute);
+        const capturedAt = at(date, hour, minute);
+        if (capturedAt > new Date()) continue; // today's sample only covers the hours already past
         timeline.push({ capturedAt, category, activity: pick(SAMPLE_ACTIVITIES[category]) });
       }
     }
+    if (timeline.length === 0) continue; // seeded before today's working hours
     const categoryMinutes = {};
     for (const entry of timeline) categoryMinutes[entry.category] = (categoryMinutes[entry.category] ?? 0) + 5;
     const productiveMinutes = timeline.filter((entry) => PRODUCTIVE.has(entry.category)).length * 5;
@@ -121,7 +127,7 @@ async function seedSampleAnalyses(employee, person, today) {
 
 async function seed() {
   await connectDatabase();
-  await Promise.all([User, Employee, Task, Activity, ApplicationUsage, Performance, Report, Screenshot, DailyAnalysis, CameraObservation].map((model) => model.deleteMany({})));
+  await Promise.all([User, Employee, Task, Activity, ApplicationUsage, Performance, Report, Screenshot, DailyAnalysis, CameraObservation, WorkSession].map((model) => model.deleteMany({})));
 
   const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 12);
   const [admin, manager] = await User.create([
@@ -159,13 +165,14 @@ async function seed() {
     const usage = [];
     for (let day = 0; day < DAYS; day += 1) {
       const date = addDays(firstDay, day);
-      if ([0, 6].includes(date.getUTCDay())) continue;
+      if ([0, 6].includes(weekday(date))) continue;
       // A gentle upward trend over the fortnight.
       const focus = Math.min(person.focus + day * 0.006, 0.98);
 
       for (const hour of WORK_HOURS) {
-        const capturedAt = new Date(date);
-        capturedAt.setUTCHours(hour);
+        const capturedAt = at(date, hour);
+        // Each record covers a whole hour: only hours that have already ended today.
+        if (capturedAt.getTime() + HOUR_MS > Date.now()) continue;
         const peakBoost = hour === 10 || hour === 11 ? 0.06 : 0;
         const activeSeconds = Math.round(3600 * Math.min(focus * (0.88 + random() * 0.12) + peakBoost, 1));
         activity.push({
@@ -188,12 +195,14 @@ async function seed() {
 
     const tasks = [];
     for (let index = 0; index < 8; index += 1) {
-      const dueDate = addDays(firstDay, 1 + Math.floor(random() * (DAYS + 3)));
-      dueDate.setUTCHours(18);
+      const dueDate = at(addDays(firstDay, 1 + Math.floor(random() * (DAYS + 3))), 18);
       const done = dueDate < today && random() < person.focus + 0.1;
-      const completedAt = done ? new Date(dueDate.getTime() - (random() < person.focus ? 3 : -20) * 3600 * 1000) : undefined;
+      const completedAt = done ? new Date(Math.min(dueDate.getTime() - (random() < person.focus ? 3 : -20) * HOUR_MS, Date.now())) : undefined;
       const expectedMinutes = 120 + Math.floor(random() * 360);
       tasks.push({
+        // Assigned a few days before it's due (never in the future). Without this, insertMany would stamp every task
+        // as created now, and completed tasks would appear to be finished before they were created.
+        createdAt: new Date(Math.min(dueDate.getTime() - (3 + (index % 4)) * 24 * HOUR_MS, Date.now() - HOUR_MS)),
         title: `${pick(taskTitles)} #${index + 1}`,
         assignedTo: employee._id,
         createdBy: manager._id,
@@ -207,6 +216,19 @@ async function seed() {
     }
     // insertMany skips the save hook, so completedAt above is kept as generated.
     await Task.insertMany(tasks);
+
+    // Website sign-ins on working days. Every fifth day nobody signed out (the browser was just closed),
+    // so the AI agent has missing sign-outs to report. Not random, so the rest of the demo data is unchanged.
+    const sessions = [];
+    for (let day = 0; day < DAYS; day += 1) {
+      const date = addDays(firstDay, day);
+      const loginAt = at(date, 8, 45 + ((day * 7 + people.indexOf(person) * 5) % 20));
+      if ([0, 6].includes(weekday(date)) || loginAt > Date.now()) continue;
+      const logoutAt = at(date, 17, 50 + ((day * 11) % 40));
+      const signedOut = (day + people.indexOf(person)) % 5 !== 0 && logoutAt < Date.now();
+      sessions.push({ user: user._id, employee: employee._id, client: 'web', loginAt, ...(signedOut && { logoutAt }) });
+    }
+    await WorkSession.insertMany(sessions);
 
     for (let day = 0; day < DAYS; day += 1) await recalculateDay(employee._id, addDays(firstDay, day));
     if (person.sampleAnalysis) await seedSampleAnalyses(employee, person, today);

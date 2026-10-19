@@ -24,9 +24,11 @@ export default function DashboardOverview({ dashboard, basePath, personal = fals
           <div className="chart-summary">
             <div>
               <strong>{summary.averageProductivity}%</strong>
-              <span className={change < 0 ? 'negative' : 'positive'}>
-                <ChangeIcon size={14} aria-hidden="true" /> {formatChange(change)}
-              </span>
+              {change !== null && (
+                <span className={change < 0 ? 'negative' : 'positive'}>
+                  <ChangeIcon size={14} aria-hidden="true" /> {formatChange(change)}
+                </span>
+              )}
             </div>
             <span>Period average</span>
           </div>
