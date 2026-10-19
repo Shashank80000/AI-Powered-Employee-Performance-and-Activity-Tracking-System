@@ -17,6 +17,7 @@
     "agent:publish": "node scripts/publish-agent.mjs",
     "dev:ai": "cd ai-service && uvicorn app.main:app --reload --port 8000",
     "seed": "npm run seed -w @tracker/server",
+    "admin:reset-password": "npm run admin:reset-password -w @tracker/server --",
     "build": "npm run build -w @tracker/client",
     "test": "npm run test --workspaces --if-present",
     "analyze": "cd analysis-agent && python -m app.main run"

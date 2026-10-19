@@ -31,7 +31,7 @@ services:
       # Where people work: each day runs midnight to midnight in this zone. Change to e.g. Asia/Kolkata.
       - key: APP_TIMEZONE
         value: UTC
-      # Set to "true" only for a demo: it signs people in without a password.
+      # Passwordless demo sign-in. Ignored while NODE_ENV=production, so it stays off on Render.
       - key: DEMO_MODE
         value: "false"
       # The website's /download page offers the installers attached to this repo's latest GitHub Release.

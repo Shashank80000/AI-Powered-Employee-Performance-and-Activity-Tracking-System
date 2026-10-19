@@ -6,6 +6,8 @@ const base = process.env.TEST_MONGODB_URI;
 const uri = base && base.replace(/\/([^/?]+)(\?|$)/, '/$1_setup$2');
 process.env.MONGODB_URI = uri ?? 'mongodb://localhost:27017/test';
 process.env.JWT_SECRET ??= 'x'.repeat(40);
+// Demo sign-in off, whatever server/.env says, so the test checks the default.
+process.env.DEMO_MODE = 'false';
 
 const skip = uri ? false : 'set TEST_MONGODB_URI to a throwaway database to run the setup test';
 let server;
@@ -67,4 +69,66 @@ test('the first visitor creates the administrator, once', { skip }, async () => 
   assert.equal((await api('GET', '/users/managers', undefined, winner.data.token)).status, 200);
   const signIn = await api('POST', '/auth/login', { email: winner.data.user.email, password: first.status === 201 ? 'Owner2026a' : 'Owner2026b' });
   assert.equal(signIn.status, 200);
+});
+
+test('setup validates input, stores only a hash, and never touches the existing administrator', { skip }, async () => {
+  const users = mongoose.connection.collection('users');
+  // Setup is closed now; validation still runs first, so bad input gets a useful message rather than 409.
+  const badEmail = await api('POST', '/auth/setup', { name: 'Owner', email: 'not-an-email', password: 'Owner2026a' });
+  assert.equal(badEmail.status, 400);
+  assert.match(badEmail.message, /valid email/);
+  assert.equal((await api('POST', '/auth/setup', { email: 'x@test.dev', password: 'Owner2026a' })).status, 400, 'name is required');
+  assert.equal((await api('POST', '/auth/setup', { name: 'Owner', email: 'x@test.dev', password: 'lettersonly' })).status, 400);
+
+  const admin = await users.findOne({ role: 'admin' });
+  assert.match(admin.passwordHash, /^\$2[aby]\$12\$/, 'bcrypt hash with cost 12');
+  assert.ok(!['Owner2026a', 'Owner2026b'].includes(admin.passwordHash));
+
+  // A late setup attempt, even with the administrator's own email and an extra role field, changes nothing.
+  const late = await api('POST', '/auth/setup', { name: 'Taken Over', email: admin.email, password: 'Takeover2026', role: 'admin' });
+  assert.equal(late.status, 409);
+  assert.deepEqual(await users.findOne({ _id: admin._id }), admin);
+  assert.equal(await users.countDocuments({ role: 'admin' }), 1);
+});
+
+test('sign-in, sign-out and role checks after setup', { skip }, async () => {
+  const admin = await mongoose.connection.collection('users').findOne({ role: 'admin' });
+  const password = admin.email === 'one@test.dev' ? 'Owner2026a' : 'Owner2026b';
+
+  const wrong = await api('POST', '/auth/login', { email: admin.email, password: 'Wrong2026x' });
+  const unknown = await api('POST', '/auth/login', { email: 'nobody@test.dev', password: 'Wrong2026x' });
+  assert.equal(wrong.status, 401);
+  assert.equal(wrong.message, unknown.message, 'the same message, so accounts cannot be discovered');
+  assert.equal((await api('POST', '/auth/login', { email: admin.email })).status, 400, 'missing password');
+
+  const { token } = (await api('POST', '/auth/login', { email: admin.email, password })).data;
+  assert.equal((await api('GET', '/auth/me', undefined, token)).data.user.role, 'admin');
+  assert.equal('passwordHash' in (await api('GET', '/auth/me', undefined, token)).data.user, false);
+
+  // Managers and employees still sign in, and can't use administrator APIs.
+  const manager = await api('POST', '/users/managers', { name: 'Mia Manager', email: 'mia@test.dev', password: 'Welcome123' }, token);
+  assert.equal(manager.status, 201);
+  const employee = await api('POST', '/employees', { name: 'Eli Employee', email: 'eli@test.dev', password: 'Welcome123', employeeCode: 'E-9', manager: manager.data.manager.id }, token);
+  assert.equal(employee.status, 201);
+  for (const email of ['mia@test.dev', 'eli@test.dev']) {
+    const first = await api('POST', '/auth/login', { email, password: 'Welcome123' });
+    assert.equal(first.status, 200, `${email} signs in`);
+    const changed = await api('POST', '/auth/password', { currentPassword: 'Welcome123', newPassword: 'Chosen2026' }, first.data.token);
+    assert.equal(changed.status, 200);
+    assert.equal((await api('GET', '/users/managers', undefined, changed.data.token)).status, 403, `${email} is not an administrator`);
+    assert.equal((await api('POST', '/users/managers', { name: 'Sneaky', email: 'sneaky@test.dev', password: 'Sneaky2026' }, changed.data.token)).status, 403);
+    assert.equal((await api('POST', '/auth/login', { email, password: 'Chosen2026' })).status, 200);
+  }
+  assert.equal((await api('GET', '/users/managers')).status, 401, 'no token');
+  assert.equal((await api('GET', '/users/managers', undefined, 'forged.token.value')).status, 401);
+
+  // Signing out records the end of this sign-in.
+  assert.equal((await api('POST', '/auth/logout', undefined, token)).status, 204);
+  const sid = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString()).sid;
+  assert.ok((await mongoose.connection.collection('worksessions').findOne({ _id: new mongoose.Types.ObjectId(sid) })).logoutAt);
+
+  // Demo sign-in is off unless explicitly enabled, and there is no public way to create another administrator.
+  assert.deepEqual((await api('GET', '/auth/demo')).data, { enabled: false, roles: [] });
+  assert.equal((await api('POST', '/auth/demo', { role: 'admin' })).status, 404);
+  assert.equal(await mongoose.connection.collection('users').countDocuments({ role: 'admin' }), 1);
 });

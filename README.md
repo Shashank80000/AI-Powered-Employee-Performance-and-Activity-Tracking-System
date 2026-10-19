@@ -34,7 +34,8 @@ npm install
 # 2. Configure the server
 cp server/.env.example server/.env    # then set MONGODB_URI and a long random JWT_SECRET
 
-# 3. Load demo data (deletes existing data)
+# 3. Optional: load demo data. It deletes existing data, so it asks you to type the database name first
+#    (or set SEED_CONFIRM=<database name>), and it refuses to run when NODE_ENV=production.
 npm run seed
 
 # 4. Start the API (port 4000) and dashboard (port 5173)
@@ -43,7 +44,7 @@ npm run dev
 
 Open http://localhost:5173 and either click **Explore as Administrator / Manager / Employee** (no password; a banner on every page suggests what to try and lets you switch roles), or sign in with a demo account. The password for all of them is `Password@123`.
 
-The one-click buttons appear only when `DEMO_MODE=true` in `server/.env`. **Keep it `false` on any real deployment**, because it signs people in without a password. Run `npm run seed` to reset the demo data at any time.
+The one-click buttons appear only when `DEMO_MODE=true` in `server/.env`. They sign people in without a password, so the server ignores `DEMO_MODE` whenever `NODE_ENV=production`. Run `npm run seed` to reset the demo data at any time.
 
 | Role | Email |
 | --- | --- |
@@ -51,7 +52,15 @@ The one-click buttons appear only when `DEMO_MODE=true` in `server/.env`. **Keep
 | Manager | manager@workplus.dev |
 | Employee | akash@workplus.dev (also shashank@, riya@, mohit@) |
 
-**First run:** on a database without any administrator, the sign-in page opens **Create the administrator** (`/setup`), where the first visitor creates the administrator account. It closes as soon as one exists. On a public deployment, complete it right after deploying.
+**First run (no demo data):** on a database without any administrator, the website opens **Create Your Administrator Account** (`/setup`). The first visitor chooses the administrator's name, email and password (at least 8 characters with a letter and a number), is signed in, and lands on the admin dashboard. Setup closes for good as soon as an administrator exists (`POST /api/auth/setup` then answers 409), and is safe against two people submitting at once. On a public deployment, open the site and complete it right after deploying. There is no other way to create an administrator.
+
+**Forgotten administrator password:** there is no email reset. On a computer whose `server/.env` (or environment) points at the database, run:
+
+```bash
+npm run admin:reset-password -- admin@company.com
+```
+
+It asks for the new password twice without showing it, changes only that administrator (it refuses manager and employee accounts, which an administrator resets on the website), and ends every existing sign-in of that account. Without a terminal, pipe the password in on stdin: `printf '%s\n' "$NEW_PASSWORD" | npm run admin:reset-password -- admin@company.com`. On Render, run it from the service's **Shell** tab inside `server/` as `npm run admin:reset-password -- admin@company.com`.
 
 **How it's used:** an administrator creates managers (**Managers**) and employees (**Employees**, choosing each person's manager). New accounts get a temporary password and must choose their own at first sign-in, on the website or in the desktop agent (the server refuses everything else until they do). Managers assign tasks to their team; employees start them and submit them for review; managers approve the work or send it back with feedback. The in-app **Help** page (also public at `/help`) is the full user guide, with a permission table and troubleshooting.
 
@@ -114,7 +123,8 @@ The download endpoints (`GET /api/downloads`, `GET /api/downloads/:file`) are pu
 | `npm run dev` | API and dashboard together |
 | `npm run dev:lan` | Same, but the dashboard is also reachable from other computers on your network (`http://<this computer's IP>:5173`) |
 | `npm run dev:server` / `dev:client` / `dev:agent` | One app on its own |
-| `npm run seed` | Reset the database with demo data |
+| `npm run seed` | Reset the database with demo data (asks for the database name; refused in production) |
+| `npm run admin:reset-password -- <email>` | Set a new password for an administrator who can't sign in |
 | `npm run build` | Production build of the dashboard (`client/dist`) |
 | `npm test` | Server unit tests (AI service: `pytest` inside `ai-service/`). Add `TEST_MONGODB_URI=mongodb://127.0.0.1:27017/workplus_test` to also run the end-to-end admin → manager → employee workflow test, which empties that database |
 | `npm run agent:publish -- --server <address>` | Build the desktop agent installer for this OS and publish it on the website's Download page |
@@ -146,10 +156,11 @@ The API and AI service go on **Render** (`render.yaml`), the dashboard on **Verc
    - `CLIENT_ORIGIN`: leave as `https://placeholder.vercel.app` for now
    - `AI_SERVICE_URL`: the `workplus-ai` URL, e.g. `https://workplus-ai.onrender.com` (fill in after it deploys)
 
-   `JWT_SECRET` and `SERVICE_API_KEY` are generated. Set `APP_TIMEZONE` to where people work (for example `Asia/Kolkata`): every "day" in dashboards, screenshots and daily analyses runs midnight to midnight there. It defaults to `UTC`. After changing it on a database that already has data, sign in as an administrator and call `POST /api/performance/recalculate` with `{"days": 90}` once, so past daily records are rebuilt under the new zone. `DEMO_MODE` is `false`; set it to `true` in the Render dashboard only for a demo. Check `https://<workplus-api>.onrender.com/api/health` shows `"database":"connected"`.
+   `JWT_SECRET` and `SERVICE_API_KEY` are generated. Set `APP_TIMEZONE` to where people work (for example `Asia/Kolkata`): every "day" in dashboards, screenshots and daily analyses runs midnight to midnight there. It defaults to `UTC`. After changing it on a database that already has data, sign in as an administrator and call `POST /api/performance/recalculate` with `{"days": 90}` once, so past daily records are rebuilt under the new zone. `DEMO_MODE` has no effect in production (`NODE_ENV=production`), so passwordless demo sign-in can't be turned on there. Check `https://<workplus-api>.onrender.com/api/health` shows `"database":"connected"`.
+   Then open the site and create the first administrator at `/setup` (see **First run** above). Nothing is created automatically, and the seed never runs on deploy.
 3. **Vercel**: Add New → Project → this repo, **Root Directory `client`**, environment variable `VITE_API_URL=https://<workplus-api>.onrender.com` (no `/api`, no trailing slash). Deploy.
 4. **Connect them**: on Render, set `CLIENT_ORIGIN` to the Vercel URL (no trailing slash).
-5. **Demo data** (optional): run `npm run seed` locally with `server/.env` pointing at the same Atlas database.
+5. **Demo data** (optional, only for a demo database): run `npm run seed` locally with `server/.env` pointing at that database (`NODE_ENV=development`). It deletes everything there, so it asks you to type the database name first. Never point it at a database with real data.
 
 Every push to `main` redeploys both. Notes:
 

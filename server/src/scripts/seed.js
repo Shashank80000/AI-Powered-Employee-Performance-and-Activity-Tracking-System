@@ -1,8 +1,11 @@
-// Fills the database with demo users, tasks and two weeks of activity.
+// Fills the database with demo users, tasks and two weeks of activity, for development and demos only.
 // Usage: npm run seed --workspace @tracker/server   (wipes existing data first)
+// Refused when NODE_ENV=production. A database that already has accounts is only wiped after you type its name
+// (or, without a terminal, set SEED_CONFIRM=<database name>).
 import bcrypt from 'bcryptjs';
 import mongoose from 'mongoose';
 import { connectDatabase, disconnectDatabase } from '../config/db.js';
+import { env } from '../config/env.js';
 import { Activity } from '../models/Activity.js';
 import { ApplicationUsage } from '../models/ApplicationUsage.js';
 import { Employee } from '../models/Employee.js';
@@ -18,6 +21,7 @@ import { recalculateDay } from '../services/performanceService.js';
 import { categorizeApplication } from '../services/productivityService.js';
 import { summarizeCameraDay } from '../utils/cameraSummary.js';
 import { addDays, startOfDay, weekday } from '../utils/dateUtils.js';
+import { ask, safeUri } from './prompt.js';
 
 const HOUR_MS = 3600 * 1000;
 /** `hour`:`minute` on the day starting at `midnight` (in APP_TIMEZONE). */
@@ -125,8 +129,27 @@ async function seedSampleAnalyses(employee, person, today) {
   }
 }
 
+class SeedRefused extends Error {}
+
+/** Never in production; and never over existing data without the person confirming which database it is. */
+async function confirmWipe() {
+  if (env.NODE_ENV === 'production') {
+    throw new SeedRefused('Refusing to seed: NODE_ENV=production. Demo data would replace real accounts and records.');
+  }
+  const database = mongoose.connection.name;
+  const accounts = await User.countDocuments();
+  if (accounts === 0) return;
+  const warning = `This deletes ALL data in database "${database}" (${safeUri(env.MONGODB_URI)}), including ${accounts} account(s).`;
+  if (process.env.SEED_CONFIRM === database) return;
+  if (!process.stdin.isTTY) throw new SeedRefused(`${warning}\nRefusing without confirmation. Set SEED_CONFIRM=${database} to continue.`);
+  console.warn(warning);
+  const answer = await ask(`Type the database name (${database}) to delete everything and load demo data: `);
+  if (answer.trim() !== database) throw new SeedRefused('Cancelled: nothing was changed.');
+}
+
 async function seed() {
   await connectDatabase();
+  await confirmWipe();
   await Promise.all([User, Employee, Task, Activity, ApplicationUsage, Performance, Report, Screenshot, DailyAnalysis, CameraObservation, WorkSession].map((model) => model.deleteMany({})));
 
   const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 12);
@@ -244,7 +267,7 @@ async function seed() {
 try {
   await seed();
 } catch (error) {
-  console.error(error);
+  console.error(error instanceof SeedRefused ? error.message : error);
   process.exitCode = 1;
 } finally {
   if (mongoose.connection.readyState) await disconnectDatabase();

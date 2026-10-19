@@ -12,11 +12,13 @@ import {
   Target,
   Users
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import SiteHeader from '../../components/common/SiteHeader.jsx';
 import DownloadButton from '../../components/download/DownloadButton.jsx';
 import DownloadOptions from '../../components/download/DownloadOptions.jsx';
 import { useAgentDownloads } from '../../hooks/useAgentDownloads.js';
+import { getSetupStatus } from '../../services/authService.js';
 
 const features = [
   { icon: Users, tone: 'teal', title: 'Role-based workspace', description: 'Separate views for administrators, managers and employees keep every person focused on the data they are allowed to use.' },
@@ -38,6 +40,13 @@ const roles = [
 
 export default function HomePage() {
   const downloads = useAgentDownloads();
+  const navigate = useNavigate();
+  // A brand-new installation has no administrator yet: the first visitor creates one before anything else works.
+  useEffect(() => {
+    getSetupStatus()
+      .then(({ needed }) => needed && navigate('/setup', { replace: true }))
+      .catch(() => {});
+  }, [navigate]);
   return (
     <div className="home-page">
       <SiteHeader />

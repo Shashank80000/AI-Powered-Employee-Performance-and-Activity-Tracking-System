@@ -70,6 +70,9 @@ export async function setupAdmin(request, response) {
     throw error;
   }
 
+  // An administrator created just before the claim (by a request whose marker has since gone stale) still wins.
+  if (await User.exists({ role: 'admin' })) throw new HttpError(409, 'Setup is already complete. Sign in instead.');
+
   let admin;
   try {
     admin = await User.create({
@@ -84,7 +87,8 @@ export async function setupAdmin(request, response) {
     await settings().deleteOne({ _id: SETUP_MARKER });
     throw error;
   }
-  response.status(201).json({ token: signToken(admin), user: admin.toPublic() });
+  const session = await startSession(admin, 'web', admin.lastLoginAt);
+  response.status(201).json({ token: signToken(admin, { sessionId: session._id }), user: admin.toPublic() });
 }
 
 export function me(request, response) {
