@@ -1,4 +1,4 @@
-import { Sparkles } from 'lucide-react';
+import { Check, Circle, Sparkles } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import PasswordField from '../../components/common/PasswordField.jsx';
@@ -7,7 +7,7 @@ import { useAuth } from '../../context/AuthContext.jsx';
 import { getSetupStatus } from '../../services/authService.js';
 import { ROLE_HOME } from '../../utils/constants.js';
 import { errorMessage } from '../../utils/formatters.js';
-import { passwordProblem } from '../../utils/password.js';
+import { PASSWORD_RULES, passwordProblem } from '../../utils/password.js';
 
 /** First run only: the first visitor creates the administrator account. Closed for good once an administrator exists. */
 export default function SetupPage() {
@@ -19,6 +19,11 @@ export default function SetupPage() {
   const [busy, setBusy] = useState(false);
   // Set when this page just created the admin, so the redirect below carries the welcome message.
   const created = useRef(false);
+  // Editing a field clears the last error, so a message never outlives the problem it describes.
+  const change = (patch) => {
+    setForm((previous) => ({ ...previous, ...patch }));
+    setError(null);
+  };
 
   useEffect(() => {
     getSetupStatus()
@@ -26,6 +31,7 @@ export default function SetupPage() {
       .catch((statusError) => setStatus({ error: statusError }));
   }, []);
 
+  // Already signed in (or just created): straight to that person's dashboard.
   if (user) return <Navigate to={ROLE_HOME[user.role]} replace state={created.current ? { welcome: true } : undefined} />;
   if (status.needed === false) return <Navigate to="/login" replace />;
 
@@ -60,7 +66,7 @@ export default function SetupPage() {
             <span>performance OS</span>
           </div>
         </div>
-        <h1>Create the administrator</h1>
+        <h1>Create Your Administrator Account</h1>
         {status.loading || status.error ? (
           <StatusMessage loading={status.loading} error={status.error} />
         ) : (
@@ -70,18 +76,31 @@ export default function SetupPage() {
               closes as soon as the account exists.
             </p>
             <label>
-              Your full name
-              <input required minLength={2} maxLength={80} autoComplete="name" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} />
+              Full name
+              <input required minLength={2} maxLength={80} autoComplete="name" value={form.name} onChange={(event) => change({ name: event.target.value })} />
             </label>
             <label>
-              Work email
-              <input type="email" required autoComplete="username" placeholder="name@company.com" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} />
+              Email address
+              <input type="email" required autoComplete="username" placeholder="name@company.com" value={form.email} onChange={(event) => change({ email: event.target.value })} />
             </label>
-            <PasswordField label="Password" value={form.password} onChange={(password) => setForm({ ...form, password })} help="At least 8 characters, with a letter and a number." />
-            <PasswordField label="Repeat password" value={form.confirm} onChange={(confirm) => setForm({ ...form, confirm })} />
+            <PasswordField label="Password" value={form.password} onChange={(password) => change({ password })} />
+            <ul className="password-rules" aria-label="Password requirements">
+              {PASSWORD_RULES.map((rule) => {
+                const met = rule.test(form.password);
+                return (
+                  <li key={rule.label} className={met ? 'met' : undefined}>
+                    {met ? <Check size={14} aria-hidden="true" /> : <Circle size={14} aria-hidden="true" />}
+                    {rule.label}
+                    <span className="visually-hidden">{met ? ' (done)' : ' (not yet)'}</span>
+                  </li>
+                );
+              })}
+            </ul>
+            <PasswordField label="Confirm password" value={form.confirm} onChange={(confirm) => change({ confirm })} />
+            {form.confirm && form.confirm !== form.password && <small className="field-help field-warning">The passwords do not match yet.</small>}
             {error && <p className="form-error" role="alert">{error}</p>}
             <button className="primary-button" disabled={busy}>
-              {busy ? 'Creating…' : 'Create administrator and sign in'}
+              {busy ? 'Creating your account…' : 'Create administrator and sign in'}
             </button>
           </>
         )}

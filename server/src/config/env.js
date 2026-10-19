@@ -31,7 +31,7 @@ const schema = z.object({
       }
     }, 'Use an IANA time zone name such as Asia/Kolkata or UTC'),
   // One-click "Explore as Admin / Manager / Employee" sign-in with the seeded demo accounts.
-  // Never enable this on a real deployment: it signs people in without a password.
+  // It signs people in without a password, so it is always off when NODE_ENV=production (see below).
   DEMO_MODE: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
   AI_SERVICE_URL: z.string().url().default('http://localhost:8000'),
   // AI agent (/api/agent): Claude interprets the backend's verified metrics. Without a key the agent still works,
@@ -71,6 +71,12 @@ if (!parsed.success) {
   console.error('Invalid server configuration:');
   for (const issue of parsed.error.issues) console.error(`  ${issue.path.join('.')}: ${issue.message}`);
   process.exit(1);
+}
+
+// Demo sign-in skips the password, so it is never available in production, whatever DEMO_MODE says.
+if (parsed.data.NODE_ENV === 'production' && parsed.data.DEMO_MODE) {
+  console.warn('DEMO_MODE=true is ignored because NODE_ENV=production: demo sign-in would skip passwords.');
+  parsed.data.DEMO_MODE = false;
 }
 
 export const env = parsed.data;

@@ -9,6 +9,7 @@
     "build": "node --check src/server.js",
     "start": "node src/server.js",
     "seed": "node src/scripts/seed.js",
+    "admin:reset-password": "node src/scripts/resetAdminPassword.js",
     "test": "node --test \"tests/*.test.js\"",
     "evaluate:agent": "node evaluation/runEvaluation.js"
   },

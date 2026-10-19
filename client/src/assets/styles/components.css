@@ -1013,3 +1013,27 @@ tbody tr:last-child td {
   font-size: var(--text-sm);
   line-height: var(--leading);
 }
+
+/* Live password checklist (setup page) */
+.password-rules {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  margin: calc(var(--space-2) * -1) 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--color-text-3);
+  font-size: var(--text-xs);
+}
+.password-rules li {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.password-rules li.met {
+  color: var(--color-success);
+}
+.field-warning {
+  margin-top: calc(var(--space-2) * -1);
+  color: var(--color-warning);
+}

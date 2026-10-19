@@ -14,6 +14,13 @@ export function suggestPassword(length = 12) {
   return chars.join('');
 }
 
+/** The server's password rules, for a live checklist while typing. */
+export const PASSWORD_RULES = [
+  { label: 'At least 8 characters', test: (password) => password.length >= 8 },
+  { label: 'At least one letter', test: (password) => /[A-Za-z]/.test(password) },
+  { label: 'At least one number', test: (password) => /\d/.test(password) }
+];
+
 /** The same rules the server enforces, checked before sending so the person sees the problem at once. */
 export function passwordProblem(password) {
   if (password.length < 8) return 'Use at least 8 characters for the password';
