@@ -25,7 +25,9 @@ const screenshotSchema = new mongoose.Schema(
     // Consent version in force when it was taken. Only version 2+ allows managers to view it;
     // screenshots taken under version 1 ("managers never see screenshots") stay private.
     consentVersion: { type: Number, default: 1 },
+    // Where the image is: a file on disk (filePath) or a private Cloudinary image (cloudinaryId). Never both.
     filePath: { type: String, select: false },
+    cloudinaryId: { type: String, select: false },
     status: { type: String, enum: ['pending', 'analyzed', 'failed'], default: 'pending', index: true },
     analysis: {
       category: { type: String, enum: SCREENSHOT_CATEGORIES },

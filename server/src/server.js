@@ -45,6 +45,7 @@ const server = createApp().listen(env.PORT, async (error) => {
     process.exit(1);
   }
   console.log(`Performance Tracker API listening on http://localhost:${env.PORT}`);
+  console.log(`Screenshots are stored in ${env.CLOUDINARY_URL ? `Cloudinary (${env.CLOUDINARY_FOLDER})` : env.SCREENSHOT_DIR}`);
   purge();
   purgeTimer = setInterval(purge, 60 * 60 * 1000);
 });
