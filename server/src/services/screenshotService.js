@@ -3,6 +3,7 @@ import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { env } from '../config/env.js';
 import { Screenshot } from '../models/Screenshot.js';
+import { cloudinaryEnabled, destroyImage, downloadImage, uploadImage } from './cloudinaryStorage.js';
 import { toDateKey } from '../utils/dateUtils.js';
 
 const JPEG_MAGIC = [0xff, 0xd8, 0xff];
@@ -11,18 +12,35 @@ export function isJpeg(buffer) {
   return Buffer.isBuffer(buffer) && JPEG_MAGIC.every((byte, index) => buffer[index] === byte);
 }
 
-/** Writes the image under SCREENSHOT_DIR/<employee>/<date>/ and records its metadata. */
+const IMAGE_FIELDS = '+filePath +cloudinaryId';
+
+/**
+ * Stores the image in Cloudinary when CLOUDINARY_URL is set, otherwise under SCREENSHOT_DIR, both as
+ * <employee>/<date>/<uuid>, and records its metadata.
+ */
 export async function storeScreenshot(employee, capturedAt, buffer) {
-  const directory = path.join(env.SCREENSHOT_DIR, employee._id.toString(), toDateKey(capturedAt));
-  await mkdir(directory, { recursive: true, mode: 0o700 });
-  const filePath = path.join(directory, `${randomUUID()}.jpg`);
-  await writeFile(filePath, buffer, { mode: 0o600 });
-  return Screenshot.create({ employee: employee._id, capturedAt, bytes: buffer.length, filePath, consentVersion: employee.consent?.version ?? 1 });
+  const key = path.join(employee._id.toString(), toDateKey(capturedAt), randomUUID());
+  const record = { employee: employee._id, capturedAt, bytes: buffer.length, consentVersion: employee.consent?.version ?? 1 };
+  if (!cloudinaryEnabled) {
+    const filePath = path.join(env.SCREENSHOT_DIR, `${key}.jpg`);
+    await mkdir(path.dirname(filePath), { recursive: true, mode: 0o700 });
+    await writeFile(filePath, buffer, { mode: 0o600 });
+    return Screenshot.create({ ...record, filePath });
+  }
+  const cloudinaryId = await uploadImage(key.split(path.sep).join('/'), buffer);
+  try {
+    return await Screenshot.create({ ...record, cloudinaryId });
+  } catch (error) {
+    // No record means nothing would ever delete the image, so remove it now.
+    await destroyImage(cloudinaryId).catch(() => {});
+    throw error;
+  }
 }
 
-/** Image bytes, or null when the file has already been deleted. */
+/** Image bytes, or null when the image has already been deleted. */
 export async function readImage(screenshotId) {
-  const screenshot = await Screenshot.findById(screenshotId).select('+filePath');
+  const screenshot = await Screenshot.findById(screenshotId).select(IMAGE_FIELDS);
+  if (screenshot?.cloudinaryId) return downloadImage(screenshot.cloudinaryId);
   if (!screenshot?.filePath) return null;
   try {
     return await readFile(screenshot.filePath);
@@ -31,11 +49,15 @@ export async function readImage(screenshotId) {
   }
 }
 
-/** Deletes the image file but keeps the metadata row (category labels). */
+/** Deletes the image but keeps the metadata row (category labels). */
 export async function deleteImage(screenshot) {
-  const withPath = screenshot.filePath === undefined ? await Screenshot.findById(screenshot._id).select('+filePath') : screenshot;
-  if (withPath?.filePath) await rm(withPath.filePath, { force: true });
-  await Screenshot.updateOne({ _id: screenshot._id }, { $unset: { filePath: 1 }, imageDeletedAt: new Date() });
+  const stored =
+    screenshot.filePath === undefined && screenshot.cloudinaryId === undefined
+      ? await Screenshot.findById(screenshot._id).select(IMAGE_FIELDS)
+      : screenshot;
+  if (stored?.cloudinaryId) await destroyImage(stored.cloudinaryId);
+  if (stored?.filePath) await rm(stored.filePath, { force: true });
+  await Screenshot.updateOne({ _id: screenshot._id }, { $unset: { filePath: 1, cloudinaryId: 1 }, imageDeletedAt: new Date() });
 }
 
 /** Removes a screenshot completely (image and record). */
@@ -46,7 +68,7 @@ export async function deleteScreenshot(screenshot) {
 
 /** Deletes every screenshot of an employee, e.g. when they turn screenshots off or withdraw consent. */
 export async function deleteAllForEmployee(employeeId) {
-  const screenshots = await Screenshot.find({ employee: employeeId }).select('+filePath');
+  const screenshots = await Screenshot.find({ employee: employeeId }).select(IMAGE_FIELDS);
   await Promise.all(screenshots.map(deleteScreenshot));
   return screenshots.length;
 }
@@ -96,16 +118,25 @@ async function sweepOldFolders(cutoff) {
 }
 
 /**
- * Deletes every screenshot (image file and record) taken more than SCREENSHOT_RETENTION_DAYS ago,
+ * Deletes every screenshot (image and record) taken more than SCREENSHOT_RETENTION_DAYS ago,
  * whether or not it was analysed. Runs at server start and every hour.
  * @returns {Promise<number>} number of screenshots deleted
  */
 export async function purgeExpiredScreenshots(now = new Date()) {
   const cutoff = retentionCutoff(now);
-  const expired = await Screenshot.find({ capturedAt: { $lt: cutoff } }).select('+filePath');
-  for (const screenshot of expired) await deleteScreenshot(screenshot);
+  const expired = await Screenshot.find({ capturedAt: { $lt: cutoff } }).select(IMAGE_FIELDS);
+  let deleted = 0;
+  for (const screenshot of expired) {
+    try {
+      await deleteScreenshot(screenshot);
+      deleted += 1;
+    } catch (error) {
+      // The record stays, so the next run tries again.
+      console.error(`Could not delete screenshot ${screenshot._id}: ${error.message}`);
+    }
+  }
   await sweepOldFolders(cutoff);
-  return expired.length;
+  return deleted;
 }
 
 export function toScreenshotResponse(screenshot, { includeViews = false } = {}) {

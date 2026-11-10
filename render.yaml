@@ -38,6 +38,13 @@ services:
       - key: DEMO_MODE
         value: "false"
       # The website's /download page offers the installers attached to this repo's latest GitHub Release.
+      # Screenshots go to Cloudinary as private images; Render's disk is wiped on every deploy.
+      - key: CLOUDINARY_CLOUD_NAME # Cloudinary console → Settings → API Keys (asked for on first deploy)
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
       - key: DOWNLOADS_GITHUB_REPO
         value: Shashank80000/AI-Powered-Employee-Performance-and-Activity-Tracking-System
 

@@ -55,6 +55,17 @@ const schema = z.object({
   // Optional token for the GitHub API (unauthenticated requests are limited to 60 an hour per IP, shared on Render).
   GITHUB_TOKEN: z.string().optional(),
   SCREENSHOT_DIR: z.string().default(fileURLToPath(new URL('../../storage/screenshots', import.meta.url))),
+  // cloudinary://<api_key>:<api_secret>@<cloud_name> (Cloudinary console → API Keys). When set, new screenshots are
+  // stored in Cloudinary as private (authenticated) images instead of SCREENSHOT_DIR, which Render wipes on every deploy.
+  CLOUDINARY_URL: z.preprocess(
+    (value) => value || undefined,
+    z
+      .string()
+      .regex(/^cloudinary:\/\/[^:@/]+:[^:@/]+@[^:@/]+$/, 'Use cloudinary://<api_key>:<api_secret>@<cloud_name>')
+      .optional()
+  ),
+  // Cloudinary folder the screenshots go in, as <folder>/<employee id>/<YYYY-MM-DD>/<uuid>.
+  CLOUDINARY_FOLDER: z.string().regex(/^[\w-]+(\/[\w-]+)*$/, 'Use letters, digits, - and _ separated by /').default('workplus/screenshots'),
   SCREENSHOT_INTERVAL_MINUTES: z.coerce.number().int().min(1).max(60).default(5),
   // Every screenshot (image and record) is deleted this many days after it was taken.
   SCREENSHOT_RETENTION_DAYS: z.coerce.number().int().min(1).max(30).default(3),
@@ -63,6 +74,17 @@ const schema = z.object({
   // Camera observations (labels only, never images) are deleted after this many days.
   CAMERA_RETENTION_DAYS: z.coerce.number().int().min(1).max(90).default(30)
 });
+
+// Cloudinary credentials may also be given separately, as the Cloudinary console lists them.
+const cloudinaryParts = ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'].map((name) => process.env[name]?.trim());
+if (!process.env.CLOUDINARY_URL?.trim() && cloudinaryParts.some(Boolean)) {
+  if (!cloudinaryParts.every(Boolean)) {
+    console.error('Invalid server configuration:\n  Set all of CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET, or none of them.');
+    process.exit(1);
+  }
+  const [cloudName, apiKey, apiSecret] = cloudinaryParts;
+  process.env.CLOUDINARY_URL = `cloudinary://${encodeURIComponent(apiKey)}:${encodeURIComponent(apiSecret)}@${cloudName}`;
+}
 
 // On Render, offer the installers released from the repository the service deploys from.
 if (process.env.RENDER_GIT_REPO_SLUG) process.env.DOWNLOADS_GITHUB_REPO ??= process.env.RENDER_GIT_REPO_SLUG;

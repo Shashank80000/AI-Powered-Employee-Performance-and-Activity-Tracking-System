@@ -13,6 +13,8 @@ process.env.JWT_SECRET ??= 'x'.repeat(40);
 process.env.DEMO_MODE = 'false';
 const screenshotDir = mkdtempSync(join(tmpdir(), 'workplus-qa-'));
 process.env.SCREENSHOT_DIR = screenshotDir;
+// Keep test images on disk, even when server/.env has Cloudinary credentials (blank values win over .env).
+for (const name of ['CLOUDINARY_URL', 'CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET']) process.env[name] = '';
 delete process.env.ANTHROPIC_API_KEY;
 
 const skip = uri ? false : 'set TEST_MONGODB_URI to a throwaway database to run the QA regression tests';
