@@ -19,6 +19,7 @@ import MyActivityPage from '../pages/employee/MyActivityPage.jsx';
 import MyScreenshotsPage from '../pages/employee/MyScreenshotsPage.jsx';
 import MyTasksPage from '../pages/employee/MyTasksPage.jsx';
 import DailyAnalysisPage from '../pages/manager/DailyAnalysisPage.jsx';
+import EmployeeReportPage from '../pages/manager/EmployeeReportPage.jsx';
 import ManagerDashboard from '../pages/manager/ManagerDashboard.jsx';
 import ReportsPage from '../pages/manager/ReportsPage.jsx';
 import TasksPage from '../pages/manager/TasksPage.jsx';
@@ -47,6 +48,7 @@ export default function AppRoutes() {
           <Route index element={<AdminDashboard />} />
           <Route path="managers" element={<ManagersPage />} />
           <Route path="employees" element={<EmployeesPage />} />
+          <Route path="employees/:employeeId/report" element={<EmployeeReportPage backTo="/admin/employees" />} />
           <Route path="tasks" element={<TasksPage />} />
           <Route path="reports" element={<ReportsPage />} />
           <Route path="analysis" element={<DailyAnalysisPage />} />
@@ -60,6 +62,7 @@ export default function AppRoutes() {
         <Route path="/manager" element={<ManagerLayout />}>
           <Route index element={<ManagerDashboard />} />
           <Route path="employees" element={<TeamPage />} />
+          <Route path="employees/:employeeId/report" element={<EmployeeReportPage backTo="/manager/employees" />} />
           <Route path="tasks" element={<TasksPage />} />
           <Route path="reports" element={<ReportsPage />} />
           <Route path="analysis" element={<DailyAnalysisPage />} />
@@ -75,6 +78,7 @@ export default function AppRoutes() {
           <Route path="tasks" element={<MyTasksPage />} />
           <Route path="activity" element={<MyActivityPage />} />
           <Route path="analysis" element={<DailyAnalysisPage personal />} />
+          <Route path="report" element={<EmployeeReportPage personal />} />
           <Route path="assistant" element={<AssistantPage />} />
           <Route path="screenshots" element={<MyScreenshotsPage />} />
           <Route path="help" element={<HelpPage />} />

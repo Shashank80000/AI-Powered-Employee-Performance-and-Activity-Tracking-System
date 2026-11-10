@@ -4,6 +4,7 @@ import { addComment, reviewTask, updateTask } from '../../services/taskService.j
 import { TASK_STATUSES, isOverdue } from '../../utils/constants.js';
 import { errorMessage, formatDate, formatMinutes, formatRelativeTime } from '../../utils/formatters.js';
 import Modal from '../common/Modal.jsx';
+import { TaskHealthSection } from './TaskHealth.jsx';
 import TaskStatusBadge from './TaskStatusBadge.jsx';
 
 const EVENT_LABELS = {
@@ -34,8 +35,9 @@ function nextStep(task, reviewer) {
 /**
  * Everything about one task: details, history and the next actions for the viewer.
  * `reviewer` is true for managers and admins, who approve work and can change any field.
+ * `flags` are the task monitor's flags for this task, shown under the facts.
  */
-export default function TaskDetails({ task, reviewer, onClose, onChanged }) {
+export default function TaskDetails({ task, reviewer, onClose, onChanged, flags }) {
   const [comment, setComment] = useState('');
   const [mode, setMode] = useState(null); // 'submit' | 'changes' | 'approve'
   const [busy, setBusy] = useState(false);
@@ -85,6 +87,8 @@ export default function TaskDetails({ task, reviewer, onClose, onChanged }) {
         <div><dt>Due</dt><dd className={isOverdue(task) ? 'text-danger' : undefined}>{task.dueDate ? formatDate(task.dueDate, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : 'No due date'}</dd></div>
         <div><dt>Time (actual / expected)</dt><dd>{formatMinutes(task.actualMinutes)} / {formatMinutes(task.expectedMinutes)}</dd></div>
       </dl>
+
+      <TaskHealthSection flags={flags} reviewer={reviewer} />
 
       <section className="task-section">
         <h3>Description</h3>

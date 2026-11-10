@@ -5,9 +5,12 @@
  * - On failure the snapshots stay queued (oldest dropped beyond 500) and are retried with
  *   exponential backoff, plus on every regular flush tick.
  * - Also sends task time as PATCH /tasks/:id { actualMinutesDelta } using the task tracker.
+ * - With useStore(file), the queue is also kept in that file (one per account), so snapshots
+ *   survive a crash, power cut or Windows shutdown/sign-out (which never fires 'before-quit').
  *
  * Payloads only ever contain counts and durations (see tracker privacy contracts).
  */
+import fs from 'node:fs';
 
 const DEFAULT_FLUSH_SECONDS = 300;
 const FLUSH_THRESHOLD = 10;
@@ -33,8 +36,30 @@ export function createActivityService({ api, taskTracker, flushIntervalSeconds =
   let lastSyncAt = null;
   let lastError = null;
   let dropped = 0;
+  /** File the queue is mirrored to, or null. */
+  let storeFile = null;
 
   const notify = () => onChange?.();
+
+  /** Mirror the queue to disk (synchronously, so it is safe to call while the system shuts down). */
+  function persist() {
+    if (!storeFile) return;
+    try {
+      if (queue.length) fs.writeFileSync(storeFile, JSON.stringify(queue), { mode: 0o600 });
+      else fs.rmSync(storeFile, { force: true });
+    } catch (err) {
+      console.warn('[activityService] could not save the upload queue:', err?.message ?? err);
+    }
+  }
+
+  function readStore(file) {
+    try {
+      const saved = JSON.parse(fs.readFileSync(file, 'utf8'));
+      return Array.isArray(saved) ? saved.filter((item) => item?.snapshot && Array.isArray(item.applications)).slice(-MAX_QUEUE) : [];
+    } catch {
+      return [];
+    }
+  }
 
   function scheduleRetry() {
     if (retryTimer) return;
@@ -75,6 +100,7 @@ export function createActivityService({ api, taskTracker, flushIntervalSeconds =
       await api.postSnapshots(payload);
       // Only remove what we sent; new snapshots may have been enqueued meanwhile.
       queue.splice(0, batch.length);
+      persist();
     }
   }
 
@@ -133,6 +159,7 @@ export function createActivityService({ api, taskTracker, flushIntervalSeconds =
         queue.splice(0, overflow);
         dropped += overflow;
       }
+      persist();
       notify();
       if (queue.length >= FLUSH_THRESHOLD) flush().catch(() => {});
     },
@@ -142,6 +169,20 @@ export function createActivityService({ api, taskTracker, flushIntervalSeconds =
     /** Discard everything queued (used on logout after a final flush attempt). */
     clear() {
       queue = [];
+      persist();
+      notify();
+    },
+
+    /**
+     * Keep the queue in this file (one per account), loading what an earlier run left there.
+     * The in-memory queue is replaced: it either was this file's content or belonged to an
+     * account that was cleared before switching.
+     * @param {string|null} file
+     */
+    useStore(file) {
+      if (file === storeFile) return;
+      storeFile = file;
+      if (file) queue = readStore(file);
       notify();
     },
 

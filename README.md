@@ -25,21 +25,162 @@ See [docs/architecture](docs/architecture/README.md) for how the parts fit toget
 - MongoDB 7+ running locally, or a MongoDB Atlas connection string
 - Python 3.11+ (only for the AI service)
 
-## Run locally
+## Getting started after cloning
+
+Follow these steps on a new computer to get the website (API and dashboard) running. The optional parts (AI service, analysis agent, camera agent, desktop agent) come after.
+
+### 1. Install the tools
+
+| Tool | Check it's installed | Get it |
+| --- | --- | --- |
+| Git | `git --version` | https://git-scm.com/downloads |
+| Node.js 22 or newer (comes with npm) | `node -v` and `npm -v` | https://nodejs.org (choose the LTS version) |
+| MongoDB 7 or newer | `mongosh --version` | See step 4 (local install, Docker or free Atlas cloud database) |
+
+### 2. Clone the repository
 
 ```bash
-# 1. Install JavaScript dependencies for client, server and desktop-agent
+git clone https://github.com/Shashank80000/AI-Powered-Employee-Performance-and-Activity-Tracking-System.git
+cd AI-Powered-Employee-Performance-and-Activity-Tracking-System
+```
+
+### 3. Install the dependencies
+
+Run this once, from the project's root folder. It installs everything for `client/`, `server/` and `desktop-agent/` together (npm workspaces), so you don't need to run `npm install` in each folder.
+
+```bash
 npm install
+```
 
-# 2. Configure the server
-cp server/.env.example server/.env    # then set MONGODB_URI and a long random JWT_SECRET
+### 4. Start MongoDB
 
-# 3. Optional: load demo data. It deletes existing data, so it asks you to type the database name first
-#    (or set SEED_CONFIRM=<database name>), and it refuses to run when NODE_ENV=production.
+Choose **one** of these:
+
+- **macOS (Homebrew):**
+  ```bash
+  brew tap mongodb/brew && brew install mongodb-community
+  brew services start mongodb-community
+  ```
+- **Windows:** install [MongoDB Community Server](https://www.mongodb.com/try/download/community) and leave "Install as a Service" ticked. It then starts automatically.
+- **Linux:** follow the [MongoDB install guide](https://www.mongodb.com/docs/manual/administration/install-on-linux/) for your distribution, then run `sudo systemctl start mongod`.
+- **Docker (any OS):**
+  ```bash
+  docker run -d --name workplus-mongo -p 27017:27017 mongo:7
+  ```
+- **MongoDB Atlas (cloud, nothing to install):** create a free cluster at https://www.mongodb.com/atlas, add a database user, allow your IP under *Network Access*, and copy the `mongodb+srv://...` connection string for step 5.
+
+With a local or Docker database, the address is `mongodb://127.0.0.1:27017/performance_tracker`, which is already the default in the example settings. Use `127.0.0.1` rather than `localhost`: on some Windows computers `localhost` points to IPv6 first, where MongoDB isn't listening.
+
+### 5. Create the server settings file
+
+`server/.env` holds secrets, so it isn't in the repository. Create it from the example:
+
+```bash
+# macOS / Linux / Git Bash
+cp server/.env.example server/.env
+
+# Windows PowerShell
+Copy-Item server\.env.example server\.env
+```
+
+Then open `server/.env` and change:
+
+| Setting | What to put |
+| --- | --- |
+| `MONGODB_URI` | Keep the default for a local or Docker database, or paste your Atlas string |
+| `JWT_SECRET` | A random value of at least 32 characters. Generate one with `openssl rand -hex 32` or `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
+| `SERVICE_API_KEY` | Another random value generated the same way |
+| `DEMO_MODE` | `true` if you want the one-click "Explore as …" buttons on the home page |
+| `APP_TIMEZONE` | Optional: where people work, e.g. `Asia/Kolkata` (default `UTC`) |
+| `ANTHROPIC_API_KEY` | Optional: lets the AI assistant use Claude. Without it, answers come from fixed rules |
+
+Never commit `server/.env`; it is already listed in `.gitignore`. The dashboard needs no settings file for local development.
+
+### 6. Load demo data (optional, recommended the first time)
+
+```bash
 npm run seed
+```
 
-# 4. Start the API (port 4000) and dashboard (port 5173)
+It **deletes everything in the database** first, so it asks you to type the database name (`performance_tracker` by default) to confirm. Without a terminal, set `SEED_CONFIRM=<database name>` instead. It refuses to run when `NODE_ENV=production`.
+
+You can skip this and create your own administrator account on the website instead (see **Creating an administrator account** below).
+
+### 7. Start the project
+
+```bash
 npm run dev
+```
+
+This starts both apps:
+
+- API: http://localhost:4000 (check it with http://localhost:4000/api/health)
+- Dashboard: **http://localhost:5173**, which is the address to open in your browser
+
+Press `Ctrl + C` to stop both. Next time, you only need steps 4 (if MongoDB isn't running as a service) and 7.
+
+### Troubleshooting
+
+| Problem | Fix |
+| --- | --- |
+| `JWT_SECRET must be at least 32 characters` or `MONGODB_URI is required` | `server/.env` is missing or incomplete. Repeat step 5 |
+| `MongooseServerSelectionError` / `ECONNREFUSED 127.0.0.1:27017` | MongoDB isn't running (step 4), or, on Atlas, your IP isn't allowed under *Network Access* |
+| `EADDRINUSE: address already in use :::4000` (or 5173) | Another program is using that port. Stop it, or set a different `PORT` in `server/.env` and start the dashboard with `VITE_API_PROXY=http://localhost:<port>` |
+| `npm install` fails building `electron` or `uiohook-napi` | These belong to the desktop agent only. Check you have Node 22+, then retry; on Windows, install the "Desktop development with C++" workload from Visual Studio Build Tools |
+| Sign-in fails with demo accounts | Run `npm run seed` (step 6) first; the demo accounts exist only after seeding |
+| No "Explore as …" buttons on the home page | Set `DEMO_MODE=true` in `server/.env` and restart `npm run dev` |
+| Dashboard opens but every request fails | The API isn't running. Look at the `server` lines in the terminal for the error |
+| `ECONNREFUSED ::1:27017` | `MONGODB_URI` says `localhost`. Change it to `127.0.0.1` |
+| Windows: `'cp' is not recognized` or `source: command not found` | Those are macOS/Linux commands. Use the PowerShell versions in this guide (`Copy-Item`, `.venv\Scripts\Activate.ps1`), or run them in Git Bash |
+| Windows: `Activate.ps1 cannot be loaded because running scripts is disabled` | Run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once in PowerShell |
+| Other computers can't reach `http://<this computer's IP>:4000` | Allow Node.js through Windows Defender Firewall (Windows asks the first time; otherwise *Windows Security → Firewall → Allow an app*), and use `npm run dev:lan` for the dashboard |
+
+### Getting the desktop agent installer (.exe, .dmg, .deb)
+
+**Cloning does not give you an installer.** `.gitignore` excludes installers (`downloads/*`, `desktop-agent/release/`, `server/storage/`), so after a clone the `downloads/` folder contains only its README. There are two ways to get one:
+
+**A. Download a ready-made installer** (connects to the hosted server at `https://ai-powered-employee-performance-and.onrender.com`)
+
+Open the [latest release](https://github.com/Shashank80000/AI-Powered-Employee-Performance-and-Activity-Tracking-System/releases/latest), scroll to **Assets**, and download the file for your computer:
+
+| Computer | File |
+| --- | --- |
+| Windows, most PCs | `WorkPlus.Agent-<version>-win-x64.exe` |
+| Windows, any kind (larger, x64 + ARM) | `WorkPlus.Agent-<version>-win.exe` |
+| Mac with Apple chip | `WorkPlus.Agent-<version>-mac-arm64.dmg` |
+| Debian / Ubuntu | `WorkPlus.Agent-<version>-linux-amd64.deb` |
+
+The hosted server's address is built into these installers, so they talk to the hosted server, **not** to a project you run on your own computer. Installers built from the current code (the next release, or option B) also have a **Change** link next to *Server* on the agent's sign-in screen: enter `localhost:4000`, or `192.168.1.20:4000` for a server on another computer, and the agent checks the address before using it. The v0.1.4 release doesn't have that link yet.
+
+**Windows first launch:** the installer isn't code-signed, so SmartScreen may say *Windows protected your PC*. Choose **More info → Run anyway**. It installs for your user only (no admin rights). After you close the window, the agent keeps running in the tray: click **^** next to the clock to find its icon.
+
+**B. Build your own installer for your local server**
+
+Run this on the operating system you want the installer for (a Windows `.exe` must be built on Windows, a `.dmg` on a Mac), after steps 1–3 above:
+
+```bash
+npm run agent:publish -- --server localhost:4000
+```
+
+The installer is written to **`desktop-agent/release/`** (for example `desktop-agent/release/WorkPlus Agent-0.1.4-win-x64.exe`) and also copied to **`server/storage/downloads/`**, so it is offered on your local website at http://localhost:5173/download. For other computers on your network, use this computer's address instead of `localhost`, e.g. `--server http://192.168.1.20:4000`.
+
+To just run the agent from source without an installer, use `npm run dev:agent`.
+
+**Why http://localhost:5173/download is empty after a clone:** the page lists installers from `server/storage/downloads/` (or `DOWNLOADS_DIR`), which doesn't exist until you build one with option B. To make it offer the release installers from option A instead, add this line to `server/.env` and restart `npm run dev`:
+
+```bash
+DOWNLOADS_GITHUB_REPO=Shashank80000/AI-Powered-Employee-Performance-and-Activity-Tracking-System
+```
+
+The page then links to the GitHub Release files. Remember that those installers connect to the hosted server, so for an agent that signs in to your local server, use option B.
+
+## Run locally (short version)
+
+```bash
+npm install
+cp server/.env.example server/.env    # then set MONGODB_URI, JWT_SECRET and SERVICE_API_KEY
+npm run seed                          # optional demo data; deletes existing data, asks for the database name
+npm run dev                           # API on port 4000, dashboard on http://localhost:5173
 ```
 
 Open http://localhost:5173 and either click **Explore as Administrator / Manager / Employee** (no password; a banner on every page suggests what to try and lets you switch roles), or sign in with a demo account. The password for all of them is `Password@123`.
@@ -74,7 +215,7 @@ Without it, reports fall back to a basic summary.
 
 ```bash
 cd ai-service
-python3 -m venv .venv && source .venv/bin/activate
+python3 -m venv .venv && source .venv/bin/activate   # Windows PowerShell: python -m venv .venv; .venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 ```
@@ -89,6 +230,7 @@ Runs on the employee's own computer and is signed in as them. Each check produce
 
 ```bash
 cd camera-agent && python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
+# Windows PowerShell: cd camera-agent; python -m venv .venv; .venv\Scripts\Activate.ps1; pip install -r requirements.txt
 python -m app.main consent     # read what it does, type I AGREE
 python -m app.main run
 ```

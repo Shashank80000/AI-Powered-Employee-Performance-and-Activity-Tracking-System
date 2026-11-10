@@ -4,13 +4,22 @@
  * The JWT is held in memory. If Electron's safeStorage encryption is available the token
  * is also persisted (encrypted, OS keychain-backed) so the employee stays signed in across
  * restarts. If encryption is NOT available the token is never written to disk.
+ *
+ * Requests go through Electron's net.fetch (Chromium's network stack), not Node's fetch, so
+ * they use the computer's proxy settings and trusted certificates. Office networks often
+ * have a proxy or inspect HTTPS with their own root certificate, which Node's fetch ignores.
  */
-import { app, safeStorage } from 'electron';
+import { app, net, safeStorage } from 'electron';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
 const DEFAULT_BASE_URL = 'http://localhost:4000/api';
 const REQUEST_TIMEOUT_MS = 15000;
+/**
+ * Sign-in calls wait longer: a server on a free hosting plan (e.g. Render) sleeps when unused
+ * and needs up to about a minute to wake up on the first request.
+ */
+export const SIGN_IN_TIMEOUT_MS = 70000;
 const TOKEN_FILE = 'session.bin';
 
 /** Error thrown for non-2xx responses or network failures. */
@@ -61,7 +70,7 @@ export function createApiService({ baseUrl, onUnauthorized } = {}) {
    * @param {string} method
    * @param {string} pathname
    * @param {unknown} [body] JSON body
-   * @param {{raw?: Buffer, contentType?: string, headers?: Record<string, string>}} [opts]
+   * @param {{raw?: Buffer, contentType?: string, headers?: Record<string, string>, timeoutMs?: number}} [opts]
    *   raw: send these bytes as-is instead of a JSON body
    */
   async function request(method, pathname, body, opts = {}) {
@@ -78,13 +87,16 @@ export function createApiService({ baseUrl, onUnauthorized } = {}) {
 
     let res;
     try {
-      res = await fetch(`${base}${pathname}`, {
+      res = await net.fetch(`${base}${pathname}`, {
         method,
         headers,
         body: payload,
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        signal: AbortSignal.timeout(opts.timeoutMs ?? REQUEST_TIMEOUT_MS),
       });
     } catch (err) {
+      if (err?.name === 'TimeoutError' || err?.name === 'AbortError') {
+        throw new ApiError(`The server at ${base} did not answer in time. If it was asleep it can take a minute to start; try again.`, 0);
+      }
       throw new ApiError(`Cannot reach server at ${base} (${err?.message ?? 'network error'})`, 0);
     }
 
@@ -136,7 +148,7 @@ export function createApiService({ baseUrl, onUnauthorized } = {}) {
      * @returns {Promise<{token: string, user: {id: string, name: string, email: string, role: string, mustChangePassword: boolean}}>}
      */
     async login(email, password) {
-      const data = await request('POST', '/auth/login', { email, password }, { headers: { 'X-Client': 'agent' } });
+      const data = await request('POST', '/auth/login', { email, password }, { headers: { 'X-Client': 'agent' }, timeoutMs: SIGN_IN_TIMEOUT_MS });
       if (!data?.token || !data?.user) throw new ApiError('Malformed login response', 500, data);
       token = data.token;
       return data;
@@ -148,7 +160,7 @@ export function createApiService({ baseUrl, onUnauthorized } = {}) {
      * @returns {Promise<{id: string, name: string, email: string, role: string, mustChangePassword: boolean}>}
      */
     async changePassword(currentPassword, newPassword) {
-      const data = await request('POST', '/auth/password', { currentPassword, newPassword }, { headers: { 'X-Client': 'agent' } });
+      const data = await request('POST', '/auth/password', { currentPassword, newPassword }, { headers: { 'X-Client': 'agent' }, timeoutMs: SIGN_IN_TIMEOUT_MS });
       if (!data?.token || !data?.user) throw new ApiError('Malformed password change response', 500, data);
       token = data.token;
       return data.user;
@@ -156,7 +168,7 @@ export function createApiService({ baseUrl, onUnauthorized } = {}) {
 
     /** GET /auth/me -> user. */
     async me() {
-      const data = await request('GET', '/auth/me');
+      const data = await request('GET', '/auth/me', undefined, { timeoutMs: SIGN_IN_TIMEOUT_MS });
       return data?.user ?? null;
     },
 

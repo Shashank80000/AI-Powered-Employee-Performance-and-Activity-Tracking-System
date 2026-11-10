@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { TASK_STATUSES, isOverdue, wasSentBack } from '../../utils/constants.js';
 import { formatDate, formatMinutes } from '../../utils/formatters.js';
 import EmptyState from '../common/EmptyState.jsx';
+import { TaskFlagChips } from './TaskHealth.jsx';
 import TaskStatusBadge from './TaskStatusBadge.jsx';
 
 const PAGE_SIZE = 15;
@@ -24,8 +25,9 @@ function actionLabel(task, reviewer) {
 /**
  * Filterable, searchable task list. `reviewer` (managers and admins) adds the assignee column, search by person and delete.
  * The filter is controlled so dashboards can link straight to, say, the tasks waiting for review.
+ * `flags` (task id -> task health flags) adds the monitor's chips to each row.
  */
-export default function TaskList({ tasks, reviewer, filter, onFilterChange, onOpen, onDelete, emptyAction }) {
+export default function TaskList({ tasks, reviewer, filter, onFilterChange, onOpen, onDelete, emptyAction, flags }) {
   const [query, setQuery] = useState('');
   const [shown, setShown] = useState(PAGE_SIZE);
 
@@ -100,7 +102,7 @@ export default function TaskList({ tasks, reviewer, filter, onFilterChange, onOp
                   <td data-label="Time (actual / expected)" className={task.actualMinutes > task.expectedMinutes ? 'text-attention' : undefined}>
                     {formatMinutes(task.actualMinutes)} / {formatMinutes(task.expectedMinutes)}
                   </td>
-                  <td data-label="Status"><TaskStatusBadge task={task} /></td>
+                  <td data-label="Status"><TaskStatusBadge task={task} /><TaskFlagChips flags={flags?.get(task.id)} /></td>
                   <td className="row-actions">
                     <button className="secondary-button small" onClick={() => onOpen(task)}>{actionLabel(task, reviewer)}</button>
                     {onDelete && (

@@ -4949,6 +4949,438 @@
           }
         },
         {
+          "name": "GET /reports/overview (employee report, last 7 days)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = (() => { try { return pm.response.json(); } catch (e) { return {}; } })();",
+                  "const v = (k) => pm.collectionVariables.get(k);",
+                  "const save = (k, val) => pm.collectionVariables.set(k, val);",
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"That employee, 7 days\", () => { pm.expect(j.employee.id).to.eql(v(\"pmEmpId\")); pm.expect(j.range.days).to.eql(7); pm.expect(j.trend.length).to.eql(7); });",
+                  "pm.test(\"Every section says whether it has data\", () => [\"activity\", \"screen\", \"camera\", \"tasks\", \"sessions\"].forEach((k) => pm.expect(j[k].available).to.be.a(\"boolean\")));",
+                  "pm.test(\"Observations cite their numbers\", () => j.observations.forEach((o) => pm.expect(o.basis).to.be.an(\"object\")));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{pmMgrToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reports/overview?employeeId={{pmEmpId}}&period=week",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reports",
+                "overview"
+              ],
+              "query": [
+                {
+                  "key": "employeeId",
+                  "value": "{{pmEmpId}}"
+                },
+                {
+                  "key": "period",
+                  "value": "week"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /reports/overview custom range",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = (() => { try { return pm.response.json(); } catch (e) { return {}; } })();",
+                  "const v = (k) => pm.collectionVariables.get(k);",
+                  "const save = (k, val) => pm.collectionVariables.set(k, val);",
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"31 days\", () => { pm.expect(j.period).to.eql(\"custom\"); pm.expect(j.range.days).to.eql(31); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{pmMgrToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reports/overview?employeeId={{pmEmpId}}&from=2026-01-01&to=2026-01-31",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reports",
+                "overview"
+              ],
+              "query": [
+                {
+                  "key": "employeeId",
+                  "value": "{{pmEmpId}}"
+                },
+                {
+                  "key": "from",
+                  "value": "2026-01-01"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-01-31"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /reports/overview from after to → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = (() => { try { return pm.response.json(); } catch (e) { return {}; } })();",
+                  "const v = (k) => pm.collectionVariables.get(k);",
+                  "const save = (k, val) => pm.collectionVariables.set(k, val);",
+                  "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{pmMgrToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reports/overview?employeeId={{pmEmpId}}&from=2026-02-01&to=2026-01-01",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reports",
+                "overview"
+              ],
+              "query": [
+                {
+                  "key": "employeeId",
+                  "value": "{{pmEmpId}}"
+                },
+                {
+                  "key": "from",
+                  "value": "2026-02-01"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-01-01"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /reports/overview without employeeId (manager) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = (() => { try { return pm.response.json(); } catch (e) { return {}; } })();",
+                  "const v = (k) => pm.collectionVariables.get(k);",
+                  "const save = (k, val) => pm.collectionVariables.set(k, val);",
+                  "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{pmMgrToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reports/overview",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reports",
+                "overview"
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /reports/overview another team’s employee (akash) → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = (() => { try { return pm.response.json(); } catch (e) { return {}; } })();",
+                  "const v = (k) => pm.collectionVariables.get(k);",
+                  "const save = (k, val) => pm.collectionVariables.set(k, val);",
+                  "pm.test(\"Status is 404\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{pmMgrToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reports/overview?employeeId={{akashEmpId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reports",
+                "overview"
+              ],
+              "query": [
+                {
+                  "key": "employeeId",
+                  "value": "{{akashEmpId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /tasks/monitor (task health, manager's team)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = (() => { try { return pm.response.json(); } catch (e) { return {}; } })();",
+                  "const v = (k) => pm.collectionVariables.get(k);",
+                  "const save = (k, val) => pm.collectionVariables.set(k, val);",
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Team scope with a summary and the thresholds\", () => { pm.expect(j.scope).to.eql(\"team\"); pm.expect(j.summary.tasksChecked).to.be.a(\"number\"); pm.expect(j.thresholds.stalledDays).to.be.a(\"number\"); });",
+                  "pm.test(\"Every flag names its rule and the numbers behind it\", () => j.flags.forEach((f) => { pm.expect(f.rule).to.be.a(\"string\"); pm.expect([\"critical\", \"warning\", \"info\"]).to.include(f.severity); pm.expect(f.message).to.be.a(\"string\"); pm.expect(f.evidence).to.be.an(\"object\"); }));",
+                  "pm.test(\"Only the manager's own employees\", () => j.flags.forEach((f) => pm.expect([v(\"pmEmpId\"), v(\"pmEmp2Id\")]).to.include(f.employeeId)));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{pmMgrToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tasks/monitor",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tasks",
+                "monitor"
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /tasks/monitor?employeeId= (one team member)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = (() => { try { return pm.response.json(); } catch (e) { return {}; } })();",
+                  "const v = (k) => pm.collectionVariables.get(k);",
+                  "const save = (k, val) => pm.collectionVariables.set(k, val);",
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Only that employee\", () => { pm.expect(j.scope).to.eql(\"employee\"); j.flags.forEach((f) => pm.expect(f.employeeId).to.eql(v(\"pmEmpId\"))); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{pmMgrToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tasks/monitor?employeeId={{pmEmpId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tasks",
+                "monitor"
+              ],
+              "query": [
+                {
+                  "key": "employeeId",
+                  "value": "{{pmEmpId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /tasks/monitor another team’s employee (akash) → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = (() => { try { return pm.response.json(); } catch (e) { return {}; } })();",
+                  "const v = (k) => pm.collectionVariables.get(k);",
+                  "const save = (k, val) => pm.collectionVariables.set(k, val);",
+                  "pm.test(\"Status is 404\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{pmMgrToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tasks/monitor?employeeId={{akashEmpId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tasks",
+                "monitor"
+              ],
+              "query": [
+                {
+                  "key": "employeeId",
+                  "value": "{{akashEmpId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /tasks/monitor invalid employeeId → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = (() => { try { return pm.response.json(); } catch (e) { return {}; } })();",
+                  "const v = (k) => pm.collectionVariables.get(k);",
+                  "const save = (k, val) => pm.collectionVariables.set(k, val);",
+                  "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{pmMgrToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tasks/monitor?employeeId=not-an-id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tasks",
+                "monitor"
+              ],
+              "query": [
+                {
+                  "key": "employeeId",
+                  "value": "not-an-id"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "[as admin] GET /tasks/monitor (whole organization)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = (() => { try { return pm.response.json(); } catch (e) { return {}; } })();",
+                  "const v = (k) => pm.collectionVariables.get(k);",
+                  "const save = (k, val) => pm.collectionVariables.set(k, val);",
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Organization scope\", () => pm.expect(j.scope).to.eql(\"organization\"));",
+                  "pm.test(\"Every flag names its rule and the numbers behind it\", () => j.flags.forEach((f) => { pm.expect(f.rule).to.be.a(\"string\"); pm.expect([\"critical\", \"warning\", \"info\"]).to.include(f.severity); pm.expect(f.message).to.be.a(\"string\"); pm.expect(f.evidence).to.be.an(\"object\"); }));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tasks/monitor",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tasks",
+                "monitor"
+              ]
+            }
+          }
+        },
+        {
           "name": "GET /performance/dashboard?period=week (manager)",
           "event": [
             {
@@ -8516,6 +8948,93 @@
                   "language": "json"
                 }
               }
+            }
+          }
+        },
+        {
+          "name": "GET /reports/overview (employee, own; employeeId ignored)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = (() => { try { return pm.response.json(); } catch (e) { return {}; } })();",
+                  "const v = (k) => pm.collectionVariables.get(k);",
+                  "const save = (k, val) => pm.collectionVariables.set(k, val);",
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Own report only\", () => pm.expect(j.employee.id).to.eql(v(\"pmEmpId\")));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{pmEmpToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reports/overview?employeeId={{akashEmpId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reports",
+                "overview"
+              ],
+              "query": [
+                {
+                  "key": "employeeId",
+                  "value": "{{akashEmpId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /tasks/monitor (employee, own; employeeId ignored)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = (() => { try { return pm.response.json(); } catch (e) { return {}; } })();",
+                  "const v = (k) => pm.collectionVariables.get(k);",
+                  "const save = (k, val) => pm.collectionVariables.set(k, val);",
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Own tasks only\", () => { pm.expect(j.scope).to.eql(\"own\"); j.flags.forEach((f) => pm.expect(f.employeeId).to.eql(v(\"pmEmpId\"))); });",
+                  "pm.test(\"No record checks meant for administrators\", () => j.flags.forEach((f) => pm.expect(f.attention).to.not.eql(\"admin\")));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{pmEmpToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tasks/monitor?employeeId={{akashEmpId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tasks",
+                "monitor"
+              ],
+              "query": [
+                {
+                  "key": "employeeId",
+                  "value": "{{akashEmpId}}"
+                }
+              ]
             }
           }
         },
@@ -13101,6 +13620,127 @@
               "path": [
                 "reports",
                 "{{reportId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Org 2 → GET /reports/overview (org 1 employee) → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = (() => { try { return pm.response.json(); } catch (e) { return {}; } })();",
+                  "const v = (k) => pm.collectionVariables.get(k);",
+                  "const save = (k, val) => pm.collectionVariables.set(k, val);",
+                  "pm.test(\"Status is 404\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{org2Token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reports/overview?employeeId={{pmEmpId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reports",
+                "overview"
+              ],
+              "query": [
+                {
+                  "key": "employeeId",
+                  "value": "{{pmEmpId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Org 2 → GET /tasks/monitor shows nothing from org 1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = (() => { try { return pm.response.json(); } catch (e) { return {}; } })();",
+                  "const v = (k) => pm.collectionVariables.get(k);",
+                  "const save = (k, val) => pm.collectionVariables.set(k, val);",
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"No org 1 employee in the flags\", () => j.flags.forEach((f) => pm.expect([v(\"pmEmpId\"), v(\"pmEmp2Id\"), v(\"akashEmpId\")]).to.not.include(f.employeeId)));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{org2Token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tasks/monitor",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tasks",
+                "monitor"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Org 2 → GET /tasks/monitor?employeeId= (org 1 employee) → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = (() => { try { return pm.response.json(); } catch (e) { return {}; } })();",
+                  "const v = (k) => pm.collectionVariables.get(k);",
+                  "const save = (k, val) => pm.collectionVariables.set(k, val);",
+                  "pm.test(\"Status is 404\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{org2Token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tasks/monitor?employeeId={{pmEmpId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tasks",
+                "monitor"
+              ],
+              "query": [
+                {
+                  "key": "employeeId",
+                  "value": "{{pmEmpId}}"
+                }
               ]
             }
           }

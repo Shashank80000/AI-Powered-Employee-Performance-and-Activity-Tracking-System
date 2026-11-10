@@ -5,9 +5,10 @@ import Notice from '../../components/common/Notice.jsx';
 import PageHeading from '../../components/common/PageHeading.jsx';
 import StatusMessage from '../../components/common/StatusMessage.jsx';
 import TaskDetails from '../../components/tasks/TaskDetails.jsx';
+import TaskHealthPanel, { flagsByTask } from '../../components/tasks/TaskHealth.jsx';
 import TaskList from '../../components/tasks/TaskList.jsx';
 import { useApi } from '../../hooks/useApi.js';
-import { listTasks } from '../../services/taskService.js';
+import { getTaskHealth, listTasks } from '../../services/taskService.js';
 
 const NOTICES = {
   'in-progress': (task) => `You started "${task.title}". Submit it for review when it is finished.`,
@@ -19,12 +20,15 @@ export default function MyTasksPage() {
   const [openId, setOpenId] = useState(null);
   const [notice, setNotice] = useState(null);
   const tasks = useApi((signal) => listTasks({ assignedTo: 'me' }, { signal }));
+  const health = useApi((signal) => getTaskHealth({}, { signal }));
+  const flags = flagsByTask(health.data);
   const clearNotice = useCallback(() => setNotice(null), []);
   const openTask = tasks.data?.find((task) => task.id === openId);
 
   function handleChanged(updated) {
     const previous = tasks.data.find((task) => task.id === updated.id);
     tasks.setData((list) => list.map((task) => (task.id === updated.id ? updated : task)));
+    health.reload();
     if (previous?.status !== updated.status && NOTICES[updated.status]) {
       setNotice(NOTICES[updated.status](updated));
       setOpenId(null);
@@ -47,6 +51,9 @@ export default function MyTasksPage() {
 
       <Notice onDismiss={clearNotice}>{notice}</Notice>
 
+      {/* Only shown when something needs attention, so a clean list stays uncluttered. */}
+      {(health.error || health.data?.flags.length > 0) && <TaskHealthPanel health={health} onOpen={setOpenId} />}
+
       <article className="panel">
         <StatusMessage loading={tasks.loading && !tasks.data} error={tasks.error} onRetry={tasks.reload} />
         {tasks.data && (
@@ -55,11 +62,12 @@ export default function MyTasksPage() {
             filter={params.get('filter') ?? 'all'}
             onFilterChange={(value) => setParams(value === 'all' ? {} : { filter: value }, { replace: true })}
             onOpen={(task) => setOpenId(task.id)}
+            flags={flags}
           />
         )}
       </article>
 
-      {openTask && <TaskDetails task={openTask} onClose={() => setOpenId(null)} onChanged={handleChanged} />}
+      {openTask && <TaskDetails task={openTask} flags={flags.get(openTask.id)} onClose={() => setOpenId(null)} onChanged={handleChanged} />}
     </>
   );
 }

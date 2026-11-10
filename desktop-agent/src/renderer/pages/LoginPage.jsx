@@ -7,6 +7,9 @@ export default function LoginPage({ status, onStatus }) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [editingServer, setEditingServer] = useState(false);
+  const [serverInput, setServerInput] = useState('');
+  const [serverError, setServerError] = useState('');
 
   async function submit(e) {
     e.preventDefault();
@@ -19,6 +22,20 @@ export default function LoginPage({ status, onStatus }) {
     } finally {
       setBusy(false);
       setPassword('');
+    }
+  }
+
+  async function saveServer(e) {
+    e.preventDefault();
+    setBusy(true);
+    setServerError('');
+    try {
+      const res = await window.agent.setServerUrl(serverInput);
+      if (res?.status) onStatus(res.status);
+      if (res?.ok) setEditingServer(false);
+      else setServerError(res?.error || 'Could not use that server.');
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -53,8 +70,43 @@ export default function LoginPage({ status, onStatus }) {
         <button type="submit" disabled={busy}>
           {busy ? 'Signing in...' : 'Sign in'}
         </button>
-        <p className="muted small">Server: {status.apiBaseUrl}</p>
+        {!editingServer && (
+          <p className="muted small">
+            Server: {status.apiBaseUrl}{' '}
+            <button
+              type="button"
+              className="secondary inline"
+              disabled={busy}
+              onClick={() => {
+                setServerInput(status.apiBaseUrl || '');
+                setServerError('');
+                setEditingServer(true);
+              }}
+            >
+              Change
+            </button>
+          </p>
+        )}
       </form>
+      {editingServer && (
+        <form className="card" onSubmit={saveServer}>
+          <h2>Server address</h2>
+          <p className="muted small">
+            Only change this if your administrator gave you a different address, for example http://192.168.1.20:4000
+            for a server on your office network. The agent checks the address before using it; a sleeping server can
+            take up to a minute to answer.
+          </p>
+          <label htmlFor="server">Address</label>
+          <input id="server" value={serverInput} onChange={(e) => setServerInput(e.target.value)} required />
+          {serverError && <p className="error" role="alert">{serverError}</p>}
+          <button type="submit" disabled={busy}>
+            {busy ? 'Checking...' : 'Save'}
+          </button>
+          <button type="button" className="secondary" disabled={busy} onClick={() => setEditingServer(false)}>
+            Cancel
+          </button>
+        </form>
+      )}
       <PrivacyNotice />
     </>
   );

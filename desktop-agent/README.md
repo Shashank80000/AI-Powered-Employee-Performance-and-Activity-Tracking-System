@@ -186,9 +186,19 @@ Platform notes:
 The snapshot format does not change with consent: a disabled keyboard count is sent as
 `keyboardEvents: 0` and disabled app names simply produce no `applications` records.
 
-If the server is unreachable, snapshots stay queued in memory (up to 500, oldest dropped
-first) and are retried with backoff. The JWT is kept in memory and, when the OS supports
-it, persisted encrypted with Electron `safeStorage`; it is never written in plain text.
+If the server is unreachable, snapshots stay queued (up to 500, oldest dropped first) and are
+retried with backoff. The queue is also kept in `<userData>/queue-<user id>.json` (the same
+counts and durations, nothing else), so it survives a crash, power cut or Windows shutdown and
+is uploaded on the next start. On shutdown, restart or sign-out of the computer the agent saves
+a final partial snapshot first (Windows never sends the app a normal quit then). The JWT is kept
+in memory and, when the OS supports it, persisted encrypted with Electron `safeStorage`; it is
+never written in plain text.
+
+If the agent starts before the network is up (typical at Windows sign-in), it keeps the saved
+sign-in and retries every 30 seconds (and on wake from sleep) instead of asking for the password.
+Requests use Electron's `net.fetch`, so they follow the computer's proxy settings and trusted
+certificates like a browser does. Sign-in waits up to 70 seconds, long enough for a server on a
+free hosting plan to wake up.
 
 ## Layout
 
@@ -234,7 +244,7 @@ The agent checks what the computer can actually do (`src/main/platform.js`). Any
 
 **Per-OS notes**
 - **macOS:** after granting Screen Recording or Input Monitoring, macOS asks you to quit and reopen the app. Permissions are tied to the app's signature, so sign release builds; otherwise people must grant them again after every update.
-- **Windows:** notifications need the installed app (the installer registers the app ID). Some antivirus tools flag keyboard-count hooks; the agent counts key presses only, never which key.
+- **Windows:** notifications need the installed app (the installer registers the app ID). Some antivirus tools flag keyboard-count hooks; the agent counts key presses only, never which key. Key presses in apps running as administrator aren't counted (Windows doesn't let a normal app see them). The installer isn't code-signed, so SmartScreen asks once (**More info → Run anyway**); signing it with a certificate (`CSC_LINK`) removes that. Closing the window keeps the agent in the tray, which Windows hides under **^** next to the clock, so the agent says so the first time.
 - **Linux:** on Ubuntu or Fedora, pick **"Ubuntu on Xorg" / "GNOME on Xorg"** on the login screen to enable keyboard counts, app names and screenshots. Without a visible tray icon, closing the window minimises it to the taskbar instead of hiding it, so tracking is never invisible. The login token is stored encrypted only when a keyring (GNOME Keyring / KWallet) is available; otherwise you sign in again after restarting the agent.
 
 ## Building installers

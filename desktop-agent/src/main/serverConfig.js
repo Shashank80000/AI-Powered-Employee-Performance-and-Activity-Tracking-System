@@ -8,7 +8,7 @@
  *      organisation:  npm run dist -- -c.extraMetadata.workplus.apiUrl=https://workplus.example.com/api
  *   4. http://localhost:4000/api
  */
-import { app } from 'electron';
+import { app, net } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -18,7 +18,8 @@ export { isInsecureRemote, normalizeServerUrl };
 
 const SETTINGS_FILE = 'server.json';
 const FALLBACK_URL = 'http://localhost:4000/api';
-const CHECK_TIMEOUT_MS = 6000;
+// Long enough for a sleeping server on a free hosting plan to wake up.
+const CHECK_TIMEOUT_MS = 70000;
 const PACKAGE_JSON = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'package.json');
 
 const settingsPath = () => path.join(app.getPath('userData'), SETTINGS_FILE);
@@ -56,7 +57,7 @@ export function saveServerUrl(apiUrl) {
 export async function checkServer(apiUrl) {
   let response;
   try {
-    response = await fetch(`${apiUrl}/health`, { signal: AbortSignal.timeout(CHECK_TIMEOUT_MS) });
+    response = await net.fetch(`${apiUrl}/health`, { signal: AbortSignal.timeout(CHECK_TIMEOUT_MS) });
   } catch {
     throw new Error(`Could not reach ${apiUrl}. Check the address and that the server is running.`);
   }

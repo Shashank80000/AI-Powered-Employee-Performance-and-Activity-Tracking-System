@@ -7,11 +7,12 @@ import PanelHeader from '../../components/common/PanelHeader.jsx';
 import StatusMessage from '../../components/common/StatusMessage.jsx';
 import TaskDetails from '../../components/tasks/TaskDetails.jsx';
 import TaskForm from '../../components/tasks/TaskForm.jsx';
+import TaskHealthPanel, { flagsByTask } from '../../components/tasks/TaskHealth.jsx';
 import TaskList from '../../components/tasks/TaskList.jsx';
 import { useApi } from '../../hooks/useApi.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { listEmployees } from '../../services/employeeService.js';
-import { createTask, deleteTask, listTasks } from '../../services/taskService.js';
+import { createTask, deleteTask, getTaskHealth, listTasks } from '../../services/taskService.js';
 import { ROLE_HOME } from '../../utils/constants.js';
 import { errorMessage } from '../../utils/formatters.js';
 
@@ -24,6 +25,9 @@ export default function TasksPage() {
   const [actionError, setActionError] = useState(null);
   const employees = useApi((signal) => listEmployees({ signal }));
   const tasks = useApi((signal) => listTasks({}, { signal }));
+  // Recomputed by the server on every read; reloaded after any change so the flags match the list.
+  const health = useApi((signal) => getTaskHealth({}, { signal }));
+  const flags = flagsByTask(health.data);
   const clearNotice = useCallback(() => setNotice(null), []);
 
   const assignable = employees.data?.filter((employee) => employee.status !== 'inactive') ?? [];
@@ -33,6 +37,7 @@ export default function TasksPage() {
   async function handleCreate(input) {
     const task = await createTask(input);
     tasks.setData((previous) => [task, ...(previous ?? [])]);
+    health.reload();
     setNotice(`"${task.title}" is assigned to ${task.assigneeName}. They will see it on their My tasks page.`);
   }
 
@@ -42,6 +47,7 @@ export default function TasksPage() {
     try {
       await deleteTask(task.id);
       tasks.setData((previous) => previous.filter((item) => item.id !== task.id));
+      health.reload();
       setNotice(`"${task.title}" was deleted.`);
     } catch (error) {
       setActionError(errorMessage(error));
@@ -50,6 +56,7 @@ export default function TasksPage() {
 
   function handleChanged(updated) {
     tasks.setData((previous) => previous.map((item) => (item.id === updated.id ? updated : item)));
+    health.reload();
     if (updated.status === 'done') setNotice(`"${updated.title}" is approved and marked done.`);
   }
 
@@ -68,6 +75,8 @@ export default function TasksPage() {
       </HelpCallout>
 
       <Notice onDismiss={clearNotice}>{notice}</Notice>
+
+      <TaskHealthPanel health={health} reviewer onOpen={setOpenId} canOpen={(id) => Boolean(tasks.data?.some((task) => task.id === id))} />
 
       <article className="panel section-gap">
         <PanelHeader title="Assign a new task" subtitle="The employee is shown the task as soon as you assign it." />
@@ -96,11 +105,12 @@ export default function TasksPage() {
             onFilterChange={(value) => setParams(value === 'all' ? {} : { filter: value }, { replace: true })}
             onOpen={(task) => setOpenId(task.id)}
             onDelete={handleDelete}
+            flags={flags}
           />
         )}
       </article>
 
-      {openTask && <TaskDetails task={openTask} reviewer onClose={() => setOpenId(null)} onChanged={handleChanged} />}
+      {openTask && <TaskDetails task={openTask} reviewer flags={flags.get(openTask.id)} onClose={() => setOpenId(null)} onChanged={handleChanged} />}
     </>
   );
 }

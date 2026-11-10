@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import Avatar from '../common/Avatar.jsx';
 
 const STATUS = {
@@ -9,9 +10,10 @@ const STATUS = {
 /**
  * People list. Optional handlers add actions: onEdit (admins and managers), and for admins
  * onResetPassword, onDeactivate and onReactivate. showManager adds the manager column (admins).
+ * reportBase (e.g. "/manager/employees") adds a link to each person's report at <reportBase>/<id>/report.
  */
-export default function EmployeeTable({ employees, showManager = false, onEdit, onResetPassword, onDeactivate, onReactivate }) {
-  const hasActions = Boolean(onEdit || onResetPassword || onDeactivate || onReactivate);
+export default function EmployeeTable({ employees, showManager = false, reportBase, onEdit, onResetPassword, onDeactivate, onReactivate }) {
+  const hasActions = Boolean(reportBase || onEdit || onResetPassword || onDeactivate || onReactivate);
   return (
     <div className="table-wrap">
       <table className="responsive-table">
@@ -61,6 +63,11 @@ export default function EmployeeTable({ employees, showManager = false, onEdit, 
                 </td>
                 {hasActions && (
                   <td className="row-actions">
+                    {reportBase && (
+                      <Link className="text-button" to={`${reportBase}/${employee.id}/report`}>
+                        Report
+                      </Link>
+                    )}
                     {!inactive && onEdit && <button className="text-button" onClick={() => onEdit(employee)}>Edit</button>}
                     {!inactive && onResetPassword && <button className="text-button" onClick={() => onResetPassword(employee)}>Reset password</button>}
                     {!inactive && onDeactivate && <button className="text-button danger" onClick={() => onDeactivate(employee)}>Deactivate</button>}
