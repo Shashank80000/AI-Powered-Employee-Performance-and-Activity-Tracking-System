@@ -4,6 +4,7 @@ import { Task, TASK_PRIORITIES, TASK_STATUSES } from '../models/Task.js';
 import { currentEmployee, findEmployeeInScope, visibleEmployeeIds } from '../middleware/roleMiddleware.js';
 import { HttpError } from '../middleware/errorMiddleware.js';
 import { recalculateDay } from '../services/performanceService.js';
+import { taskHealth } from '../services/taskMonitorService.js';
 import { objectId } from '../utils/accountRules.js';
 import { toDateKey } from '../utils/dateUtils.js';
 
@@ -45,6 +46,8 @@ const employeeUpdateSchema = z.object({
 const EMPLOYEE_FIELDS = new Set(Object.keys(employeeUpdateSchema.shape));
 // More logged time than this on one task is almost certainly a mistake (about two working months).
 const MAX_ACTUAL_MINUTES = 320 * 60;
+
+const monitorSchema = z.object({ employeeId: objectId.optional() });
 
 const commentSchema = z.object({ text: z.string().trim().min(1, 'Write a comment first').max(2000, 'Keep the comment under 2000 characters') });
 
@@ -139,6 +142,12 @@ export async function listTasks(request, response) {
 
   const tasks = await Task.find(filter).sort({ dueDate: 1, createdAt: -1 }).populate(POPULATE);
   response.json({ tasks: tasks.map(toResponse) });
+}
+
+/** GET /tasks/monitor: rule-based flags for tasks that are not on track, within the caller's scope. */
+export async function monitorTasks(request, response) {
+  const { employeeId } = monitorSchema.parse(request.query);
+  response.json(await taskHealth(request.user, { employeeId }));
 }
 
 export async function createTask(request, response) {

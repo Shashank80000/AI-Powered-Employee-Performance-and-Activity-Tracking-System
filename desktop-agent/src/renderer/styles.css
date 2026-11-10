@@ -94,6 +94,7 @@ button {
 }
 button:disabled { opacity: 0.6; cursor: default; }
 button.secondary { background: transparent; color: var(--accent); }
+button.inline { padding: 2px 8px; font-size: 12px; }
 button.ghost {
   background: transparent;
   border-color: var(--border);

@@ -145,6 +145,7 @@ export default function EmployeesPage() {
           <EmployeeTable
             employees={visible.slice(0, shown)}
             showManager
+            reportBase="/admin/employees"
             onEdit={setEditing}
             onResetPassword={setResetting}
             onDeactivate={handleDeactivate}

@@ -848,3 +848,134 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ---- Whole-employee report -------------------------------------------- */
+.report-back {
+  margin-bottom: var(--space-3);
+}
+.report-period {
+  margin: 0 0 var(--space-4);
+  color: var(--color-text-2);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+.report-nodata {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius);
+  background: var(--color-surface-2);
+  color: var(--color-text-2);
+  font-size: var(--text-sm);
+}
+.report-nodata svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--color-text-3);
+}
+.report-basis {
+  color: var(--color-text-3);
+  font-size: var(--text-xs);
+}
+.report-small {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-xs);
+}
+.report-subheading {
+  margin: var(--space-5) 0 0;
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+.report-subheading:first-of-type {
+  margin-top: var(--space-4);
+}
+.report-facts {
+  margin-top: var(--space-3);
+}
+/* The report's bar lists sit in half-width panels: narrower share column, minutes sized to their text. */
+.employee-report .app-usage li {
+  grid-template-columns: minmax(90px, 1fr) 40px minmax(60px, 1.6fr) minmax(56px, auto);
+  gap: var(--space-3);
+}
+@media (max-width: 720px) {
+  .report-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-3);
+    padding: var(--space-3);
+  }
+}
+
+@media print {
+  .sidebar,
+  .sidebar-backdrop,
+  .topbar,
+  .skip-link,
+  .no-print {
+    display: none !important;
+  }
+  .app-shell,
+  .page-wrap {
+    display: block;
+    max-width: none;
+    padding: 0;
+    background: #fff;
+    animation: none;
+  }
+  .employee-report .panel {
+    box-shadow: none;
+    break-inside: avoid;
+  }
+  .employee-report .content-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---- Task health (task monitor flags) -------------------------------- */
+.health-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 0;
+  color: var(--color-text-2);
+  font-weight: var(--weight-medium);
+}
+.health-alert-icon {
+  color: var(--color-warning);
+}
+.health-item-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.health-who {
+  margin-left: auto;
+  color: var(--color-text-3);
+  font-size: var(--text-xs);
+}
+.health-list .health-task {
+  margin-top: var(--space-1);
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+.health-list .health-task span {
+  color: var(--color-text-3);
+}
+.task-flag-chips {
+  display: flex;
+  margin-top: var(--space-1);
+}
+.task-health .report-small {
+  margin: var(--space-3) 0 0;
+}
+@media (max-width: 720px) {
+  .health-who {
+    margin-left: 0;
+    flex-basis: 100%;
+  }
+}

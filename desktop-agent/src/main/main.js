@@ -10,7 +10,7 @@
  * Tracking is always shown in the tray tooltip and status window, and can be paused/resumed,
  * reconfigured or withdrawn by the person at any time.
  */
-import { app, BrowserWindow, Menu, Notification, Tray, ipcMain, nativeImage, shell } from 'electron';
+import { app, BrowserWindow, Menu, Notification, Tray, ipcMain, nativeImage, powerMonitor, shell } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
@@ -61,6 +61,8 @@ const STATUS_PUSH_MS = 5000;
 const TRACKING_POLL_MS = 15000;
 const TASK_REFRESH_MS = 10 * 60 * 1000;
 const QUIT_FLUSH_TIMEOUT_MS = 4000;
+/** Started before the network was up (e.g. at Windows sign-in): try the saved sign-in again this often. */
+const RESTORE_RETRY_MS = 30000;
 
 /** @type {BrowserWindow|null} */
 let mainWindow = null;
@@ -96,6 +98,10 @@ let controlTimer = null;
 let screenshotRetentionDays = 3;
 /** DELETE /consent failed; retried on the next server sync. */
 let withdrawPending = false;
+/** Timer retrying the saved sign-in while the server is unreachable. */
+let restoreRetryTimer = null;
+/** Windows hides tray icons under the ^ arrow: say once per run that closing didn't quit. */
+let toldStillRunning = false;
 
 // ---------------------------------------------------------------------------
 // Services
@@ -521,11 +527,20 @@ function createWindow() {
       // the agent must never keep tracking with no visible sign of it.
       if (CAPABILITIES.trayReliable) mainWindow.hide();
       else mainWindow.minimize();
+      if (process.platform === 'win32' && !toldStillRunning) {
+        toldStillRunning = true;
+        showSystemNotification(
+          'WorkPlus Agent is still running',
+          'It keeps tracking in the background. Open it from the tray icon (click ^ next to the clock), or right-click the icon to pause or quit.',
+        );
+      }
     }
   });
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
+  // Windows: shutdown, restart or sign-out.
+  mainWindow.on('session-end', prepareForSystemExit);
 
   const devUrl = process.env.VITE_DEV_SERVER_URL;
   if (devUrl) mainWindow.loadURL(devUrl);
@@ -571,6 +586,7 @@ async function beginSession(user) {
   }
   currentUser = user;
   lastUserId = String(user.id);
+  activityService.useStore(queueFile(user.id));
   authError = null;
   notice = null;
   const previousVersion = savedConsentVersion(String(user.id));
@@ -627,6 +643,25 @@ async function endSession({ keepQueue = false } = {}) {
   pushStatus();
 }
 
+/** Where this account's unsent snapshots are kept between runs (counts and durations only). */
+function queueFile(userId) {
+  return path.join(app.getPath('userData'), `queue-${String(userId).replace(/[^\w-]/g, '_')}.json`);
+}
+
+/**
+ * The computer is shutting down, restarting or signing out. Windows ends the app without
+ * 'before-quit', so take the final snapshot now: it lands in the on-disk queue and is
+ * uploaded on the next start. Also lets the window close instead of blocking shutdown.
+ */
+function prepareForSystemExit() {
+  quitting = true;
+  try {
+    tracker?.stop();
+  } catch (err) {
+    console.warn('[main] could not save before shutdown:', err?.message ?? err);
+  }
+}
+
 function withTimeout(promise, ms) {
   return Promise.race([promise.catch(() => false), new Promise((resolve) => setTimeout(() => resolve(false), ms))]);
 }
@@ -638,7 +673,14 @@ async function restoreSession() {
   if (START_HIDDEN && (!currentUser || !consent.acceptedAt)) showWindow();
 }
 
+function cancelRestoreRetry() {
+  if (restoreRetryTimer) clearTimeout(restoreRetryTimer);
+  restoreRetryTimer = null;
+}
+
 async function restoreStoredSession() {
+  cancelRestoreRetry();
+  if (currentUser || passwordChangeFor) return;
   if (!(await api.loadStoredToken())) return;
   try {
     const user = await api.me();
@@ -650,10 +692,13 @@ async function restoreStoredSession() {
       if (webControl.changedBy === 'system') startIfStopped();
     }
   } catch (err) {
-    if (err?.isNetworkError) {
-      authError = 'Server unreachable. Sign in again when you are back online.';
-    }
     api.setToken(null);
+    // Offline, or the server is starting (5xx): keep the saved sign-in and try again, so an agent
+    // started before Wi-Fi connects resumes by itself instead of asking for the password.
+    if (err?.isNetworkError || err?.status >= 500) {
+      authError = 'Waiting for the server (no connection yet). The agent keeps trying and continues by itself; you can also sign in again.';
+      restoreRetryTimer = setTimeout(() => restoreStoredSession().catch(() => {}), RESTORE_RETRY_MS);
+    }
     pushStatus();
   }
 }
@@ -680,6 +725,7 @@ function registerIpc() {
     const email = typeof payload?.email === 'string' ? payload.email.trim() : '';
     const password = typeof payload?.password === 'string' ? payload.password : '';
     if (!email || !password) throw new Error('Email and password are required.');
+    cancelRestoreRetry();
     if (currentUser) await endSession();
 
     passwordChangeFor = null;
@@ -721,6 +767,7 @@ function registerIpc() {
   });
 
   handle('agent:logout', async () => {
+    cancelRestoreRetry();
     authError = null;
     passwordChangeFor = null;
     if (currentUser) await endSession();
@@ -747,6 +794,7 @@ function registerIpc() {
     const apiUrl = normalizeServerUrl(input);
     await checkServer(apiUrl);
     if (apiUrl !== api.baseUrl) {
+      cancelRestoreRetry();
       // A sign-in belongs to one server, and queued data must never go to another one.
       await api.clearToken();
       activityService.clear();
@@ -861,6 +909,12 @@ if (!app.requestSingleInstanceLock()) {
     registerIpc();
     createTray();
     createWindow();
+    // macOS and Linux: shutdown or restart (Windows uses the window's 'session-end').
+    powerMonitor.on('shutdown', prepareForSystemExit);
+    // Back from sleep: retry a pending sign-in now instead of waiting for the timer.
+    powerMonitor.on('resume', () => {
+      if (restoreRetryTimer) restoreStoredSession().catch(() => {});
+    });
     await restoreSession();
   });
 

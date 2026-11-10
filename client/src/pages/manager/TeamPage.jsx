@@ -19,7 +19,7 @@ export default function TeamPage() {
   return (
     <>
       <PageHeading eyebrow="People" title="My team">
-        The employees your administrator assigned to you. You can update their job title, department and availability. To add people or move
+        The employees your administrator assigned to you. Open someone's report to see their tasks, activity and screen analysis together. You can update their job title, department and availability. To add people or move
         someone to another team, ask your administrator.
       </PageHeading>
       <Notice onDismiss={clearNotice}>{notice}</Notice>
@@ -31,7 +31,7 @@ export default function TeamPage() {
             <Link to="/manager/tasks">assign them tasks</Link>.
           </EmptyState>
         )}
-        {data?.length > 0 && <EmployeeTable employees={data} onEdit={setEditing} />}
+        {data?.length > 0 && <EmployeeTable employees={data} reportBase="/manager/employees" onEdit={setEditing} />}
       </article>
       {editing && (
         <EditEmployeeDialog
