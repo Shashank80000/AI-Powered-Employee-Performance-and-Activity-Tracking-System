@@ -3,6 +3,7 @@ import { dateKey } from '../utils/accountRules.js';
 import { DailyAnalysis } from '../models/DailyAnalysis.js';
 import { employeeForRequest } from '../middleware/roleMiddleware.js';
 import { addDays, dayStart, startOfDay, toDateKey } from '../utils/dateUtils.js';
+import { dayStatusMinutes, workStatus } from '../utils/workStatus.js';
 
 const querySchema = z.object({
   employeeId: z.string().optional(),
@@ -18,7 +19,14 @@ export function toAnalysisResponse(analysis) {
     analyzedCount: analysis.analyzedCount,
     categoryMinutes: Object.fromEntries(analysis.categoryMinutes ?? []),
     productiveMinutes: analysis.productiveMinutes,
-    timeline: analysis.timeline,
+    // { working, entertainment, not_working, estimated }: estimated for analyses stored before it existed.
+    statusMinutes: dayStatusMinutes(analysis),
+    timeline: analysis.timeline.map(({ capturedAt, category, activity, productive, status }) => ({
+      capturedAt,
+      category,
+      activity,
+      status: status ?? workStatus({ category, productive })
+    })),
     camera: {
       observationCount: analysis.camera?.observationCount ?? 0,
       stateMinutes: Object.fromEntries(analysis.camera?.stateMinutes ?? []),

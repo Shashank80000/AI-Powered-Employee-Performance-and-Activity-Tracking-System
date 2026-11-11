@@ -3,7 +3,7 @@
 export const PLATFORM_LABELS = { macos: 'macOS', windows: 'Windows', linux: 'Linux' };
 export const ARCH_LABELS = {
   macos: { arm64: 'Apple Silicon (M1 or later)', x64: 'Intel' },
-  windows: { x64: '64-bit (most PCs)', arm64: 'ARM', universal: '64-bit and ARM (one installer)' },
+  windows: { x64: '64-bit (most PCs)', arm64: 'ARM only (e.g. Snapdragon), not for most PCs', universal: '64-bit and ARM (one installer)' },
   linux: { x64: 'x64', arm64: 'ARM64' }
 };
 
@@ -45,6 +45,6 @@ export const formatSize = (bytes) => `${Math.round(bytes / 1024 / 1024)} MB`;
 /** What to expect the first time the agent opens, per system (installers are unsigned unless your organisation signs them). */
 export const FIRST_LAUNCH = {
   macos: 'If macOS says the app can’t be checked, Control-click the app in Applications and choose Open. Then allow the permissions it asks for (Accessibility, Input Monitoring and, for screenshots, Screen Recording) in System Settings → Privacy & Security.',
-  windows: 'Zip: right-click it, choose Extract All, then open WorkPlus Agent.exe in the extracted folder. Installer (.exe): it runs for your user account only and needs no admin rights. If Windows SmartScreen appears, choose More info → Run anyway.',
+  windows: 'Most PCs need the 64-bit installer; the ARM one is only for ARM laptops such as Snapdragon. The installer runs for your user account only and needs no admin rights. If “Windows protected your PC” appears, choose More info → Run anyway. If “Smart App Control blocked an app” appears, there is no way to run it on that PC: the installer is not code-signed yet, so ask your administrator.',
   linux: 'AppImage: make it executable (chmod +x) and run it. Debian or Ubuntu: sudo apt install ./<file>.deb, then open WorkPlus Agent from your apps.'
 };

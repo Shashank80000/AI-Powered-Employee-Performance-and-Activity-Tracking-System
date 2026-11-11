@@ -991,6 +991,11 @@
 .download-none {
   padding: var(--space-2) 0 var(--space-1);
 }
+.download-slow {
+  margin: var(--space-4) 0 0;
+  color: var(--color-text-2);
+  line-height: var(--leading-loose);
+}
 .download-guide-link {
   margin: var(--space-6) 0 0;
 }

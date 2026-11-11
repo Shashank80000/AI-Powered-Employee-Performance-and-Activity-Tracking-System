@@ -20,6 +20,10 @@ export default function DailyAnalysisPage({ personal = false }) {
 
   const ready = personal || employeeId;
   const analysis = useApi((signal) => (ready ? getDailyAnalysis({ employeeId: personal ? undefined : employeeId, date }, { signal }) : Promise.resolve(null)), [employeeId, date, ready]);
+  // useApi keeps the previous result while the next one loads (and if it fails). Only show an analysis that belongs to
+  // the employee and day currently selected, so one person's data is never shown under another person's name.
+  const current = analysis.data && (personal || analysis.data.employeeId === employeeId) && analysis.data.date === date ? analysis.data : null;
+  const employeeName = employees.data?.find((employee) => employee.id === employeeId)?.name;
 
   return (
     <>
@@ -64,13 +68,14 @@ export default function DailyAnalysisPage({ personal = false }) {
         <StatusMessage
           loading={analysis.loading}
           error={analysis.error}
-          empty={!analysis.loading && !analysis.data}
+          empty={!analysis.loading && !analysis.error && !current}
           emptyText="No analysis for this day yet. The analysis agent runs at the end of each day."
           onRetry={analysis.reload}
         />
       )}
-      {analysis.data && <DailyAnalysisView analysis={analysis.data} />}
-      {!personal && employeeId && <TeamScreenshots employeeId={employeeId} date={date} />}
+      {current && !analysis.loading && <DailyAnalysisView analysis={current} />}
+      {/* Keyed, so switching employee or day starts empty instead of briefly showing the previous person's screenshots. */}
+      {!personal && employeeId && <TeamScreenshots key={`${employeeId}:${date}`} employeeId={employeeId} employeeName={employeeName} date={date} />}
     </>
   );
 }

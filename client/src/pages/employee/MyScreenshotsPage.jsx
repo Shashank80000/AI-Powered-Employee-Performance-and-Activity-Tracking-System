@@ -7,6 +7,7 @@ import { useApi } from '../../hooks/useApi.js';
 import { deleteScreenshot, getScreenshotImage, listMyScreenshots } from '../../services/screenshotService.js';
 import { SCREEN_CATEGORIES } from '../../utils/constants.js';
 import { formatTime, todayKey } from '../../utils/formatters.js';
+import { WorkStatusChip } from '../../components/reports/WorkStatusBars.jsx';
 
 function ViewedBy({ views }) {
   if (!views?.length) return <p className="shot-views muted">Not viewed by anyone else</p>;
@@ -74,6 +75,7 @@ export default function MyScreenshotsPage() {
               <figcaption>
                 <time dateTime={screenshot.capturedAt}>{formatTime(screenshot.capturedAt)}</time>
                 <span className={`category-chip chip-${category?.tone ?? 'neutral'}`}>{category?.label ?? (screenshot.status === 'pending' ? 'Waiting for analysis' : 'Not analysed')}</span>
+                <WorkStatusChip status={screenshot.analysis?.status} />
                 <button className="icon-button" onClick={() => handleDelete(screenshot)} aria-label={`Delete screenshot from ${formatTime(screenshot.capturedAt)}`}>
                   <Trash2 size={15} />
                 </button>

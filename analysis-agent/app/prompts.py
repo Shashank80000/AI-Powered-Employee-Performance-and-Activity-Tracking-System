@@ -51,7 +51,7 @@ CLASSIFICATION_SCHEMA: dict[str, Any] = {
 
 DAY_SUMMARY_PROMPT = """You write a short, supportive end-of-day summary for an employee's \
 own activity dashboard. You receive only aggregated data: minutes per screen activity \
-category, a timeline of generic activity labels with times, that day's activity metrics and, \
+category, minutes the screen showed work, entertainment or no work ("statusMinutes"), a timeline of generic activity labels with times, that day's activity metrics and, \
 when the person turned on camera checks, minutes per generic camera state (for example \
 "working_at_computer", "on_a_call", "away_from_desk") with a timeline of those states.
 

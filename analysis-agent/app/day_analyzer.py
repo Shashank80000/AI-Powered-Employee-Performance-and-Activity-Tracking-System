@@ -58,10 +58,35 @@ def productive_minutes(shots: list[DayScreenshot], interval_minutes: int) -> int
 def build_timeline(shots: list[DayScreenshot]) -> list[TimelineEntry]:
     return [
         TimelineEntry(captured_at=s.captured_at, category=s.analysis.category,
-                      activity=s.analysis.activity)
+                      activity=s.analysis.activity, productive=s.analysis.productive)
         for s in shots
         if s.analysis
     ]
+
+
+ENTERTAINMENT = {"entertainment", "social_media"}
+
+
+def work_status(category: str, productive: bool | None) -> str | None:
+    """working / entertainment / not_working (mirrors server/src/utils/workStatus.js)."""
+    if category == "unclassified":
+        return None
+    if category in ENTERTAINMENT:
+        return "entertainment"
+    if category == "idle_or_locked":
+        return "not_working"
+    if productive is None:
+        return None
+    return "working" if productive else "not_working"
+
+
+def status_minutes(timeline: list[TimelineEntry], interval_minutes: int) -> dict[str, int]:
+    totals = {"working": 0, "entertainment": 0, "not_working": 0}
+    for entry in timeline:
+        status = work_status(entry.category, entry.productive)
+        if status:
+            totals[status] += interval_minutes
+    return totals
 
 
 def camera_summary(day: DayData) -> CameraSummary | None:
@@ -149,11 +174,13 @@ def summary_input(
     performance: Performance | None,
     camera: CameraSummary | None = None,
     camera_observations: list[CameraObservation] | None = None,
+    interval_minutes: int | None = None,
 ) -> str:
     """Aggregated, name-free text sent to Claude for the day summary."""
     payload = {
         "categoryMinutes": minutes,
         "productiveMinutes": productive,
+        "statusMinutes": None if interval_minutes is None else status_minutes(timeline, interval_minutes),
         "timeline": [
             {"time": t.captured_at.strftime("%H:%M"), "category": t.category, "activity": t.activity}
             for t in timeline
@@ -213,7 +240,7 @@ def analyze_day(
     model = TEMPLATE_MODEL
     if shots or camera:
         text = summary_input(minutes, productive, timeline, day.performance, camera,
-                             day.camera_observations)
+                             day.camera_observations, day.interval_minutes)
         output = claude_summary(client, settings, text, sleep)
         if output is not None:
             model = settings.model

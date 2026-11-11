@@ -9,7 +9,14 @@ const dailyAnalysisSchema = new mongoose.Schema(
     analyzedCount: { type: Number, min: 0, default: 0 },
     categoryMinutes: { type: Map, of: Number, default: {} },
     productiveMinutes: { type: Number, min: 0, default: 0 },
-    timeline: [{ capturedAt: Date, category: String, activity: String, _id: false }],
+    // Working / entertainment / not working minutes (utils/workStatus.js). No defaults on purpose:
+    // analyses stored before this existed have none, and get an estimate when read.
+    statusMinutes: {
+      working: { type: Number, min: 0 },
+      entertainment: { type: Number, min: 0 },
+      not_working: { type: Number, min: 0 }
+    },
+    timeline: [{ capturedAt: Date, category: String, activity: String, productive: Boolean, status: String, _id: false }],
     // From camera-agent's labels (never images). Empty when the person hasn't enabled camera checks.
     camera: {
       observationCount: { type: Number, min: 0, default: 0 },

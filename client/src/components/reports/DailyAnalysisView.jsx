@@ -2,6 +2,7 @@ import { Sparkles } from 'lucide-react';
 import { CAMERA_STATES, SCREEN_CATEGORIES } from '../../utils/constants.js';
 import { formatMinutes, formatTime } from '../../utils/formatters.js';
 import PanelHeader from '../common/PanelHeader.jsx';
+import WorkStatusBars, { WorkStatusChip } from './WorkStatusBars.jsx';
 
 const categoryInfo = (key) => SCREEN_CATEGORIES[key] ?? SCREEN_CATEGORIES.other;
 const cameraInfo = (key) => CAMERA_STATES[key] ?? CAMERA_STATES.other;
@@ -85,6 +86,20 @@ export default function DailyAnalysisView({ analysis }) {
         </article>
       </section>
 
+      {analysis.statusMinutes && (
+        <article className="panel">
+          <PanelHeader
+            title="Working, entertainment or not working"
+            subtitle={analysis.statusMinutes.estimated ? 'Estimated from the categories (this day was analysed before this breakdown existed)' : 'One label per analysed screenshot'}
+          />
+          <WorkStatusBars statusMinutes={analysis.statusMinutes} />
+          <p className="muted">
+            Entertainment and social media count as entertainment; a locked or idle screen, or a screen the classifier judged not work-related,
+            counts as not working. Based on a screenshot every few minutes, so it is an indication, not proof.
+          </p>
+        </article>
+      )}
+
       {analysis.camera?.observationCount > 0 && <CameraPanel camera={analysis.camera} />}
 
       {analysis.timeline.length > 0 && (
@@ -95,6 +110,7 @@ export default function DailyAnalysisView({ analysis }) {
               <li key={entry.capturedAt}>
                 <time dateTime={entry.capturedAt}>{formatTime(entry.capturedAt)}</time>
                 <span className={`category-chip chip-${categoryInfo(entry.category).tone}`}>{categoryInfo(entry.category).label}</span>
+                <WorkStatusChip status={entry.status} />
                 <span>{entry.activity}</span>
               </li>
             ))}

@@ -5,6 +5,7 @@ import { env } from '../config/env.js';
 import { Screenshot } from '../models/Screenshot.js';
 import { cloudinaryEnabled, destroyImage, downloadImage, uploadImage } from './cloudinaryStorage.js';
 import { toDateKey } from '../utils/dateUtils.js';
+import { workStatus } from '../utils/workStatus.js';
 
 const JPEG_MAGIC = [0xff, 0xd8, 0xff];
 
@@ -139,13 +140,17 @@ export async function purgeExpiredScreenshots(now = new Date()) {
   return deleted;
 }
 
+function toAnalysis({ category, activity, productive, confidence }) {
+  return { category, activity, productive, confidence, status: workStatus({ category, productive }) };
+}
+
 export function toScreenshotResponse(screenshot, { includeViews = false } = {}) {
   return {
     id: screenshot._id.toString(),
     capturedAt: screenshot.capturedAt,
     status: screenshot.status,
     hasImage: !screenshot.imageDeletedAt,
-    analysis: screenshot.analysis?.category ? screenshot.analysis : null,
+    analysis: screenshot.analysis?.category ? toAnalysis(screenshot.analysis) : null,
     ...(includeViews && {
       views: (screenshot.views ?? []).map((view) => ({ name: view.user?.name ?? 'Deleted user', role: view.user?.role, at: view.at }))
     })

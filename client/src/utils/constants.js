@@ -47,6 +47,13 @@ export const SCREEN_CATEGORIES = {
   unclassified: { label: 'Unclassified', tone: 'neutral' }
 };
 
+// One plain answer per analysed screenshot, derived from its category (server/src/utils/workStatus.js).
+export const WORK_STATUSES = {
+  working: { label: 'Working', tone: 'teal' },
+  entertainment: { label: 'Entertainment', tone: 'coral' },
+  not_working: { label: 'Not working', tone: 'amber' }
+};
+
 // Generic webcam labels from camera-agent (no images are ever stored).
 export const CAMERA_STATES = {
   working_at_computer: { label: 'At the computer', tone: 'teal' },

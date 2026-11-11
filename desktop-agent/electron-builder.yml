@@ -8,6 +8,8 @@ directories:
   output: release
   # build/license_en.txt is the monitoring notice the person must accept to install
   # (shown by the Windows installer and the macOS disk image).
+  # build/icon.png (1024x1024, drawn from build/icon.svg) is the app and installer icon on every OS;
+  # electron-builder turns it into the .ico/.icns files. The tray keeps its coloured status dot.
   buildResources: build
 files:
   - dist/**

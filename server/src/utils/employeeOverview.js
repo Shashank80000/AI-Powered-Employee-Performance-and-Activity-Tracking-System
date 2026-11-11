@@ -1,6 +1,7 @@
 import { MIN_TASKS_FOR_RATE, analyseActivity, analyseSessions, analyseTasks, percent, prepareTasks } from './agentMetrics.js';
 import { addDays, dayStart, lastNDays, secondsToHours, toDateKey } from './dateUtils.js';
 import { averageScore, sumMetrics } from '../services/productivityService.js';
+import { dayStatusMinutes } from './workStatus.js';
 
 /**
  * The whole-employee report: one person over one period, built only from stored records (daily Performance,
@@ -94,7 +95,12 @@ export function summariseScreens(analyses, range) {
   let analyzedCount = 0;
   let productiveMinutes = 0;
   let daysAnalysed = 0;
+  const status = { working: 0, entertainment: 0, not_working: 0 };
+  let statusEstimated = false;
   for (const analysis of days) {
+    const dayStatus = dayStatusMinutes(analysis);
+    for (const key of Object.keys(status)) status[key] += dayStatus[key];
+    if (dayStatus.estimated && dayStatus.working + dayStatus.entertainment + dayStatus.not_working > 0) statusEstimated = true;
     screenshotCount += minutes(analysis.screenshotCount);
     analyzedCount += minutes(analysis.analyzedCount);
     productiveMinutes += minutes(analysis.productiveMinutes);
@@ -122,6 +128,9 @@ export function summariseScreens(analyses, range) {
     observedMinutes: round1(observedMinutes),
     productiveMinutes: round1(observedMinutes ? Math.min(productiveMinutes, observedMinutes) : productiveMinutes),
     productiveShare: percent(Math.min(productiveMinutes, observedMinutes), observedMinutes),
+    // Working / entertainment / not working (utils/workStatus.js); estimated when older days lack stored totals.
+    statusMinutes: { working: round1(status.working), entertainment: round1(status.entertainment), not_working: round1(status.not_working) },
+    statusEstimated,
     categories: [...byCategory.entries()]
       .filter(([, value]) => value > 0)
       .sort(([a, x], [b, y]) => y - x || a.localeCompare(b))

@@ -1,12 +1,24 @@
 import { Download } from 'lucide-react';
-import { installerUrl } from '../../services/downloadService.js';
+import { RELEASES_URL, installerUrl } from '../../services/downloadService.js';
 import { FIRST_LAUNCH, PLATFORM_LABELS, archLabel, formatSize } from '../../utils/platform.js';
 import StatusMessage from '../common/StatusMessage.jsx';
 
 /** A card per operating system with its installers. The visitor's own system comes first. */
 export default function DownloadOptions({ downloads, showTips = true }) {
-  const { data, error, reload, platform, byPlatform } = downloads;
-  if (!data) return <StatusMessage loading={!error} error={error} onRetry={reload} />;
+  const { data, error, slow, reload, platform, byPlatform } = downloads;
+  if (!data) {
+    return (
+      <>
+        <StatusMessage loading={!error} error={error} onRetry={reload} />
+        {(slow || error) && (
+          <p className="download-slow" role="status">
+            {error ? 'The download list could not be loaded.' : 'Waking up the server. This can take up to a minute.'}{' '}
+            <a href={RELEASES_URL} target="_blank" rel="noreferrer">Download directly from GitHub</a> instead.
+          </p>
+        )}
+      </>
+    );
+  }
 
   const ordered = [...byPlatform].sort((a, b) => Number(b.key === platform) - Number(a.key === platform));
   return (

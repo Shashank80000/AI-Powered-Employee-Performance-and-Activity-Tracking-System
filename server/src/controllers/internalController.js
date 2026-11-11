@@ -9,6 +9,7 @@ import { Screenshot, SCREENSHOT_CATEGORIES } from '../models/Screenshot.js';
 import { HttpError } from '../middleware/errorMiddleware.js';
 import { readImage, toScreenshotResponse } from '../services/screenshotService.js';
 import { addDays, dayStart } from '../utils/dateUtils.js';
+import { countStatusMinutes, workStatus } from '../utils/workStatus.js';
 import { toAnalysisResponse } from './analysisController.js';
 
 // Internal API for analysis-agent, protected by X-Service-Key (see authMiddleware.requireServiceKey).
@@ -35,7 +36,9 @@ const dailySchema = z.object({
   analyzedCount: z.number().int().min(0),
   categoryMinutes: z.record(z.enum(SCREENSHOT_CATEGORIES), z.number().min(0)),
   productiveMinutes: z.number().min(0),
-  timeline: z.array(z.object({ capturedAt: z.coerce.date(), category: z.enum(SCREENSHOT_CATEGORIES), activity: z.string().max(80) })).max(1000),
+  timeline: z
+    .array(z.object({ capturedAt: z.coerce.date(), category: z.enum(SCREENSHOT_CATEGORIES), activity: z.string().max(80), productive: z.boolean().optional() }))
+    .max(1000),
   camera: z
     .object({
       observationCount: z.number().int().min(0),
@@ -130,6 +133,17 @@ export async function upsertDailyAnalysis(request, response) {
   if (!(await Employee.exists({ _id: input.employeeId }))) throw new HttpError(404, 'Employee not found');
   const { employeeId, date, ...fields } = input;
   const day = dayStart(date);
+
+  // Working / entertainment / not working, per timeline entry and for the day. Agents older than this
+  // send no `productive` per entry, so it is taken from the stored screenshot (still there within retention).
+  const shots = await Screenshot.find({ employee: employeeId, capturedAt: dayRange(date), status: 'analyzed' }, 'capturedAt analysis').lean();
+  const productiveAt = new Map(shots.map((shot) => [shot.capturedAt.getTime(), shot.analysis?.productive]));
+  fields.timeline = fields.timeline.map((entry) => {
+    const productive = entry.productive ?? productiveAt.get(entry.capturedAt.getTime());
+    return { ...entry, productive, status: workStatus({ category: entry.category, productive }) };
+  });
+  fields.statusMinutes = countStatusMinutes(fields.timeline.map((entry) => entry.status), env.SCREENSHOT_INTERVAL_MINUTES);
+
   const analysis = await DailyAnalysis.findOneAndUpdate({ employee: employeeId, date: day }, fields, { upsert: true, new: true, setDefaultsOnInsert: true });
   // One analysis per day: drop one stored for the same day under an earlier APP_TIMEZONE.
   await DailyAnalysis.deleteMany({ employee: employeeId, date: { $gte: day, $lt: addDays(day, 1) }, _id: { $ne: analysis._id } });
