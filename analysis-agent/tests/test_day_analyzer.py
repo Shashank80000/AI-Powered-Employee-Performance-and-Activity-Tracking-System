@@ -97,3 +97,25 @@ def test_summary_input_contains_aggregates_only() -> None:
 
     text = summary_input(category_minutes(shots, 5), 5, build_timeline(shots), day.performance)
     assert '"categoryMinutes"' in text and '"09:00"' in text and "activeSeconds" in text
+
+
+def test_work_status_and_minutes() -> None:
+    from datetime import datetime, timezone
+
+    from app.day_analyzer import status_minutes, work_status
+    from app.schemas import TimelineEntry
+
+    assert work_status("coding", True) == "working"
+    assert work_status("other", False) == "not_working"
+    assert work_status("idle_or_locked", True) == "not_working"
+    assert work_status("entertainment", True) == "entertainment"
+    assert work_status("social_media", None) == "entertainment"
+    assert work_status("coding", None) is None
+    at = datetime(2026, 9, 30, 9, tzinfo=timezone.utc)
+    timeline = [
+        TimelineEntry(captured_at=at, category="coding", activity="editing code", productive=True),
+        TimelineEntry(captured_at=at, category="social_media", activity="scrolling a feed", productive=False),
+        TimelineEntry(captured_at=at, category="idle_or_locked", activity="lock screen", productive=False),
+    ]
+    assert status_minutes(timeline, 5) == {"working": 5, "entertainment": 5, "not_working": 5}
+    assert timeline[0].model_dump(by_alias=True)["productive"] is True

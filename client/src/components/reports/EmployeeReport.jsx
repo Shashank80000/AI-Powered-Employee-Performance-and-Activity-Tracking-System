@@ -3,6 +3,7 @@ import { CAMERA_STATES, SCREEN_CATEGORIES } from '../../utils/constants.js';
 import { formatMinutes } from '../../utils/formatters.js';
 import { formatDay } from '../agent/EvidenceDetails.jsx';
 import PanelHeader from '../common/PanelHeader.jsx';
+import WorkStatusBars from './WorkStatusBars.jsx';
 
 // Same labels and tones as the AI assistant's observations.
 const KIND = {
@@ -221,6 +222,13 @@ function ScreenPanel({ screen }) {
       {!screen.available && <NoData>{screen.note}</NoData>}
       {screen.available && (
         <>
+          {screen.statusMinutes && (
+            <>
+              <h3 className="report-subheading">Working, entertainment or not working{screen.statusEstimated ? ' (partly estimated)' : ''}</h3>
+              <WorkStatusBars statusMinutes={screen.statusMinutes} />
+              <h3 className="report-subheading">By category</h3>
+            </>
+          )}
           <Bars rows={screen.categories.map(({ category, minutes }) => ({ key: category, minutes }))} info={categoryInfo} total={screen.observedMinutes} />
           <p className="muted report-small">
             {formatMinutes(screen.productiveMinutes)} of {formatMinutes(screen.observedMinutes)} classified as work-related ({rate(screen.productiveShare)}). Categories come from an

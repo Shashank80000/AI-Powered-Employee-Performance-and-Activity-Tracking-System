@@ -155,6 +155,7 @@ class TimelineEntry(CamelModel):
     captured_at: datetime
     category: Category
     activity: str
+    productive: bool | None = None
 
 
 class CameraSummary(CamelModel):
