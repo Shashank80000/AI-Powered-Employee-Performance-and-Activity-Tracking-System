@@ -6,15 +6,19 @@ import { formatTime } from '../../utils/formatters.js';
 import PanelHeader from '../common/PanelHeader.jsx';
 import StatusMessage from '../common/StatusMessage.jsx';
 import ScreenshotThumbnail from './ScreenshotThumbnail.jsx';
+import { WorkStatusChip } from './WorkStatusBars.jsx';
 
 /** One employee's screenshots for a day, for their manager or an admin. */
-export default function TeamScreenshots({ employeeId, date }) {
+export default function TeamScreenshots({ employeeId, employeeName, date }) {
   const shots = useApi((signal) => listTeamScreenshots(employeeId, date, { signal }), [employeeId, date]);
   const list = shots.data?.screenshots;
 
   return (
     <article className="panel section-gap">
-      <PanelHeader title="Screenshots" subtitle={list ? `${list.length} taken this day` : undefined} />
+      <PanelHeader
+        title={employeeName ? `Screenshots: ${employeeName}` : 'Screenshots'}
+        subtitle={list ? `${list.length} taken this day` : undefined}
+      />
       <p className="notice-line">
         <ShieldAlert size={15} aria-hidden="true" />
         Each screenshot you open is recorded, and the employee can see who viewed it and when. Screenshots are deleted
@@ -30,6 +34,7 @@ export default function TeamScreenshots({ employeeId, date }) {
               <figcaption>
                 <time dateTime={screenshot.capturedAt}>{formatTime(screenshot.capturedAt)}</time>
                 <span className={`category-chip chip-${category?.tone ?? 'neutral'}`}>{category?.label ?? 'Not analysed yet'}</span>
+                <WorkStatusChip status={screenshot.analysis?.status} />
               </figcaption>
               {screenshot.analysis?.activity && <p className="shot-activity">{screenshot.analysis.activity}</p>}
             </figure>
