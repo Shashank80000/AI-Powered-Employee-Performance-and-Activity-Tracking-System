@@ -151,7 +151,7 @@ const FAQ = [
   ['As a manager, I don’t see an employee', 'You only see employees assigned to you. Ask your administrator to choose you as their manager on the Employees page.'],
   ['As an employee, I can’t mark a task done', 'That is expected: submit it for review instead. Your manager marks it done when they approve it.'],
   ['My time isn’t logged against a task', 'Make sure the desktop agent is running, you are signed in, tracking isn’t paused, and the task is selected in the agent.'],
-  ['The desktop agent won’t install on Windows', 'If “Windows protected your PC” appears, select More info, then Run anyway. If antivirus blocks it, ask your IT team to allow it. See the Download page for each system’s steps.'],
+  ['The desktop agent won’t install on Windows', 'Use the 64-bit installer unless your PC has an ARM processor. If “Windows protected your PC” appears, select More info, then Run anyway. If “Smart App Control blocked an app” appears, Windows offers no way to run it, because the installer is not code-signed yet: tell your administrator. If antivirus blocks it, ask your IT team to allow it. See the Download page for each system’s steps.'],
   ['I see “You do not have access”', 'That page or action belongs to another role. Use the menu on the left: it only shows what your role can use.']
 ];
 
